@@ -1,0 +1,128 @@
+import React from 'react';
+
+interface PixDocLogoProps {
+  size?: number;
+  className?: string;
+  showBadge?: boolean;
+}
+
+export const PixDocLogo: React.FC<PixDocLogoProps> = ({
+  size = 36,
+  className = '',
+}) => {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 128 128"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={`shrink-0 drop-shadow-sm ${className}`}
+    >
+      <defs>
+        {/* Main Background Squircle Gradient */}
+        <linearGradient id="pixdoc_bg_grad" x1="16" y1="16" x2="112" y2="112" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#18181B" />
+          <stop offset="100%" stopColor="#09090B" />
+        </linearGradient>
+
+        {/* PDF Red Crimson Gradient */}
+        <linearGradient id="pixdoc_pdf_grad" x1="32" y1="28" x2="68" y2="92" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#FF334B" />
+          <stop offset="100%" stopColor="#E11D48" />
+        </linearGradient>
+
+        {/* Image Cyan / Violet Gradient */}
+        <linearGradient id="pixdoc_img_grad" x1="60" y1="44" x2="96" y2="100" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#38BDF8" />
+          <stop offset="50%" stopColor="#6366F1" />
+          <stop offset="100%" stopColor="#8B5CF6" />
+        </linearGradient>
+
+        {/* Glass Highlight */}
+        <linearGradient id="pixdoc_highlight" x1="32" y1="20" x2="96" y2="80" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.18" />
+          <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
+        </linearGradient>
+
+        {/* Soft Drop Shadow Filter */}
+        <filter id="pixdoc_shadow" x="-10%" y="-10%" width="120%" height="120%" filterUnits="userSpaceOnUse">
+          <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#000000" floodOpacity="0.35" />
+        </filter>
+      </defs>
+
+      {/* Rounded Squircle Base */}
+      <rect
+        x="6"
+        y="6"
+        width="116"
+        height="116"
+        rx="28"
+        fill="url(#pixdoc_bg_grad)"
+        stroke="#27272A"
+        strokeWidth="1.5"
+      />
+
+      {/* Internal Subtle Highlight Rim */}
+      <rect
+        x="7.5"
+        y="7.5"
+        width="113"
+        height="113"
+        rx="26.5"
+        fill="none"
+        stroke="url(#pixdoc_highlight)"
+        strokeWidth="1.5"
+      />
+
+      {/* Group with slight shadow */}
+      <g filter="url(#pixdoc_shadow)">
+        {/* PDF Document Shape (Left Layer) */}
+        <path
+          d="M34 32C34 28.6863 36.6863 26 40 26H64L78 40V86C78 89.3137 75.3137 92 72 92H40C36.6863 92 34 89.3137 34 86V32Z"
+          fill="url(#pixdoc_pdf_grad)"
+        />
+
+        {/* Folded Corner Accent */}
+        <path
+          d="M64 26V36C64 38.2091 65.7909 40 68 40H78L64 26Z"
+          fill="#FDA4AF"
+          fillOpacity="0.85"
+        />
+
+        {/* PDF Horizontal Document Micro-lines */}
+        <rect x="42" y="48" width="18" height="3" rx="1.5" fill="#FFFFFF" fillOpacity="0.8" />
+        <rect x="42" y="56" width="24" height="3" rx="1.5" fill="#FFFFFF" fillOpacity="0.8" />
+        <rect x="42" y="64" width="14" height="3" rx="1.5" fill="#FFFFFF" fillOpacity="0.8" />
+
+        {/* Image / Picture Frame (Right Layer, Overlapping) */}
+        <rect
+          x="54"
+          y="46"
+          width="44"
+          height="46"
+          rx="10"
+          fill="url(#pixdoc_img_grad)"
+          stroke="#09090B"
+          strokeWidth="2.5"
+        />
+
+        {/* Camera Aperture / Sun Element */}
+        <circle cx="85" cy="59" r="4.5" fill="#FEF08A" />
+
+        {/* Stylized Modern Landscape Peaks (Image icon) */}
+        <path
+          d="M57 84L68 69C69.1 67.5 71.4 67.5 72.5 69L79 78L83 72C84.1 70.5 86.4 70.5 87.5 72L95 83C95.7 83.9 95.1 85.2 94 85.2H58C56.9 85.2 56.3 83.9 57 84Z"
+          fill="#FFFFFF"
+          fillOpacity="0.95"
+        />
+
+        {/* Sparkle / Transformation Flare */}
+        <path
+          d="M52 38L53.5 42.5L58 44L53.5 45.5L52 50L50.5 45.5L46 44L50.5 42.5L52 38Z"
+          fill="#FFFFFF"
+        />
+      </g>
+    </svg>
+  );
+};
