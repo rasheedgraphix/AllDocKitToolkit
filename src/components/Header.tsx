@@ -1,12 +1,14 @@
 import React from 'react';
-import { Sun, Moon, ShieldCheck } from 'lucide-react';
+import { Sun, Moon, ShieldCheck, User as UserIcon } from 'lucide-react';
 import { ToolId } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 interface HeaderProps {
   activeTool: ToolId;
   theme: 'dark' | 'light';
   onToggleTheme: () => void;
   toolNames: Record<ToolId, string>;
+  onOpenAuth?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -14,7 +16,10 @@ export const Header: React.FC<HeaderProps> = ({
   theme,
   onToggleTheme,
   toolNames,
+  onOpenAuth,
 }) => {
+  const { user } = useAuth();
+
   return (
     <header
       id="app-header"
@@ -31,6 +36,28 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="flex items-center gap-3">
+        {onOpenAuth && (
+          <button
+            id="account-btn"
+            onClick={onOpenAuth}
+            title={user ? `Signed in as ${user.displayName || user.email}` : 'Sign In'}
+            className="flex items-center gap-2 p-1.5 sm:px-3 sm:py-1.5 rounded-lg text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 border border-stone-200 dark:border-stone-700 transition-colors cursor-pointer text-xs"
+          >
+            {user?.photoURL ? (
+              <img
+                src={user.photoURL}
+                alt={user.displayName || 'Account'}
+                className="w-5 h-5 rounded-full"
+              />
+            ) : (
+              <UserIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            )}
+            <span className="hidden sm:inline font-medium">
+              {user ? user.displayName || user.email?.split('@')[0] : 'Sign In'}
+            </span>
+          </button>
+        )}
+
         <button
           id="theme-toggle-btn"
           onClick={onToggleTheme}

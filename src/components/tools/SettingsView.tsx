@@ -15,7 +15,11 @@ import {
   Mail,
   FileText,
   X,
+  User as UserIcon,
+  LogIn,
+  LogOut,
 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 import { AppSettings } from '../../types';
 import { isTauri, openExternalUrl } from '../../utils/platform';
 import {
@@ -39,13 +43,16 @@ interface SettingsViewProps {
   settings: AppSettings;
   onUpdateSettings: (newSettings: Partial<AppSettings>) => void;
   onResetSettings: () => void;
+  onOpenAuth?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   settings,
   onUpdateSettings,
   onResetSettings,
+  onOpenAuth,
 }) => {
+  const { user, signOut } = useAuth();
   const [license, setLicense] = useState<License>(checkLicense());
   const [purchaseNotice, setPurchaseNotice] = useState<string | null>(null);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
@@ -427,6 +434,56 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             }
             className="w-full accent-stone-900 dark:accent-stone-100"
           />
+        </div>
+      </div>
+
+      {/* Firebase Account & Cloud Profile */}
+      <div className="p-5 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-stone-500">
+                User Account
+              </span>
+              {user ? (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                  Authenticated
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-400 border border-stone-200 dark:border-stone-700">
+                  Guest
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-stone-500 dark:text-stone-400">
+              {user
+                ? `Signed in as ${user.displayName || user.email}`
+                : 'Sign in to sync preferences, manage subscriptions, and restore purchases.'}
+            </p>
+          </div>
+
+          <div>
+            {user ? (
+              <button
+                type="button"
+                onClick={() => signOut()}
+                className="py-2 px-3.5 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 hover:bg-stone-100 dark:hover:bg-stone-700/80 text-stone-700 dark:text-stone-200 text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5 text-stone-500" />
+                <span>Sign Out</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onOpenAuth}
+                className="py-2 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Sign In / Register</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

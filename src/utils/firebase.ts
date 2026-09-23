@@ -1,4 +1,3 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
 import {
   getMessaging,
   getToken,
@@ -6,18 +5,9 @@ import {
   isSupported,
   Messaging,
 } from 'firebase/messaging';
+import { app, firebaseConfig } from '../lib/firebase';
 
-// Firebase configuration with placeholders (user will replace with their credentials)
-export const firebaseConfig = {
-  apiKey: 'YOUR_API_KEY',
-  authDomain: 'pixdoc-toolkit.firebaseapp.com',
-  projectId: 'pixdoc-toolkit',
-  messagingSenderId: 'YOUR_SENDER_ID',
-  appId: 'YOUR_APP_ID',
-};
-
-// Initialize app safely (avoid duplicate app initialization error)
-export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+export { app, firebaseConfig };
 
 let messagingInstance: Messaging | null = null;
 let messagingChecked = false;

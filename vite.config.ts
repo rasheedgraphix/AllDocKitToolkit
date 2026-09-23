@@ -3,14 +3,17 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
 
-export default defineConfig(() => {
+export default defineConfig(({ command }) => {
   return {
-    base: process.env.TAURI_ENV_PLATFORM || process.env.TAURI_BUILD ? './' : '/PixDoc/',
+    base: command === 'serve' ? '/' : (process.env.GITHUB_PAGES ? '/PixDoc/' : './'),
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
         '@': path.resolve(process.cwd(), '.'),
+        react: path.resolve(process.cwd(), 'node_modules/react'),
+        'react-dom': path.resolve(process.cwd(), 'node_modules/react-dom'),
       },
+      dedupe: ['react', 'react-dom'],
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
