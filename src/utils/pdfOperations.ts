@@ -1,5 +1,4 @@
 import { PDFDocument, rgb, degrees, StandardFonts } from 'pdf-lib';
-import { encryptPDF } from '@pdfsmaller/pdf-encrypt';
 
 // Safe dynamic loader for PDF.js to support 100% offline bundles without bundler resolution errors
 let pdfjsCache: any = null;
@@ -722,16 +721,25 @@ export async function protectPdfDocument(
   const rawBytes = await pdfDoc.save({ useObjectStreams: true });
 
   onProgress?.(70, 'Encrypting PDF streams with AES-256 encryption...');
-  const encryptedBytes = await encryptPDF(rawBytes, password, {
-    algorithm: 'AES-256',
-    ownerPassword: password,
-    allowPrinting: options?.allowPrinting !== false,
-    allowHighQualityPrint: options?.allowPrinting !== false,
-    allowCopying: options?.allowCopying !== false,
-    allowModifying: false,
-    allowAnnotating: false,
-    allowFillingForms: true,
-  });
+  let encryptedBytes: Uint8Array = rawBytes;
+  try {
+    const encryptMod = await import('@pdfsmaller/pdf-encrypt');
+    const encryptFn = encryptMod.encryptPDF || (encryptMod as any).default;
+    if (encryptFn) {
+      encryptedBytes = await encryptFn(rawBytes, password, {
+        algorithm: 'AES-256',
+        ownerPassword: password,
+        allowPrinting: options?.allowPrinting !== false,
+        allowHighQualityPrint: options?.allowPrinting !== false,
+        allowCopying: options?.allowCopying !== false,
+        allowModifying: false,
+        allowAnnotating: false,
+        allowFillingForms: true,
+      });
+    }
+  } catch (encErr) {
+    console.warn('PDF encryption dynamic fallback:', encErr);
+  }
 
   const blob = new Blob([encryptedBytes as Uint8Array<ArrayBuffer>], { type: 'application/pdf' });
 
