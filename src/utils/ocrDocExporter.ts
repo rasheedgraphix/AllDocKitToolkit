@@ -392,3 +392,49 @@ export function stopTextToSpeech(): void {
     window.speechSynthesis.cancel();
   }
 }
+
+/**
+ * Intelligent Book OCR Text Cleaner & De-Noiser
+ * Eliminates stray border/frame symbols, fixes line breaks, and retains real text (Urdu, Arabic, English).
+ */
+export function cleanBookOcrText(rawText: string): string {
+  if (!rawText) return '';
+
+  const lines = rawText.split('\n');
+  const cleanedLines: string[] = [];
+
+  for (let line of lines) {
+    let trimmed = line.trim();
+    if (!trimmed) {
+      cleanedLines.push('');
+      continue;
+    }
+
+    // Keep Page Header lines
+    if (trimmed.startsWith('=== [ Page') && trimmed.endsWith('] ===')) {
+      cleanedLines.push('\n' + trimmed + '\n');
+      continue;
+    }
+
+    // Check if line is purely noise from ornate decorative borders (e.g. "8 9", "0 7", "02 > 7 1", "٠. ٠. 7 3", "00,,7")
+    const words = trimmed.split(/\s+/);
+    const alphaOrArabicChars = trimmed.replace(/[\d\s.,;:!?_|\-~`'"()[\]{}<>+=/*\\^%$#@!&]/g, '');
+
+    // If line has fewer than 2 meaningful letters and is mostly numbers/symbols, filter it out as border noise
+    if (alphaOrArabicChars.length < 2 && words.length <= 4 && !/^(باب|فصل|مفرد|مرکب|درس|سبق|\d+)/i.test(trimmed)) {
+      continue;
+    }
+
+    // Clean up excessive repeated symbols (e.g., "________", "........")
+    trimmed = trimmed.replace(/_{4,}/g, ' _____ ');
+    trimmed = trimmed.replace(/\.{4,}/g, ' ... ');
+    trimmed = trimmed.replace(/\s{2,}/g, ' ');
+
+    cleanedLines.push(trimmed);
+  }
+
+  return cleanedLines
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}

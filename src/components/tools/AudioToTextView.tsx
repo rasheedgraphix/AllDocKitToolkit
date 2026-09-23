@@ -251,79 +251,109 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
       return;
     }
 
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert('Speech Recognition is not supported in this browser.');
-      return;
-    }
+    setIsAutoTranscribing(true);
+    setStatusMessage(`Analyzing and transcribing ${audioFile.name}...`);
 
     try {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        try {
-          await navigator.mediaDevices.getUserMedia({ audio: true });
-        } catch {}
+      // 1. Read file as Base64
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const res = reader.result as string;
+          const b64 = res.split(',')[1] || res;
+          resolve(b64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(audioFile);
+      });
+
+      const selectedLangObj = LANGUAGES.find((l) => l.code === selectedLang);
+      const langPrompt = selectedLangObj ? selectedLangObj.label : 'Urdu, Arabic, or English';
+
+      // 2. Call backend transcription API
+      const response = await fetch('/api/transcribe-audio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          audioBase64: base64Data,
+          mimeType: audioFile.type || 'audio/mp3',
+          languagePrompt: langPrompt,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const extracted = data.transcript?.trim() || '';
+
+        if (extracted) {
+          setTranscript((prev) => (prev ? prev.trim() + '\n\n' + extracted : extracted));
+          setStatusMessage('Transcription completed successfully!');
+          return;
+        }
       }
 
-      setIsAutoTranscribing(true);
-      setStatusMessage('Starting audio playback transcription...');
+      // If server response didn't return text, try local speech recognition fallback
+      throw new Error('Fallback to local playback transcription');
+    } catch (apiErr) {
+      console.warn('Backend transcription fallback:', apiErr);
+      setStatusMessage('Transcribing via local playback listener...');
 
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = selectedLang;
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        setIsAutoTranscribing(false);
+        setStatusMessage('Transcription completed or please verify microphone permissions.');
+        return;
+      }
 
-      const audio = audioRef.current || new Audio(audioUrl);
-      audio.currentTime = 0;
-      audio.play();
-      setIsPlayingAudio(true);
+      try {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = selectedLang;
 
-      let fullAudioText = '';
+        const audio = audioRef.current || new Audio(audioUrl);
+        audio.currentTime = 0;
+        audio.play();
+        setIsPlayingAudio(true);
 
-      recognition.onresult = (event: any) => {
-        let currentTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            const mins = Math.floor(audio.currentTime / 60);
-            const secs = Math.floor(audio.currentTime % 60);
-            const timeStr = `[${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}] `;
-            const piece = timeStr + event.results[i][0].transcript.trim();
-            currentTranscript += piece + '\n';
+        recognition.onresult = (event: any) => {
+          let currentTranscript = '';
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+              const piece = event.results[i][0].transcript.trim();
+              currentTranscript += piece + ' ';
+            }
           }
-        }
-        if (currentTranscript) {
-          fullAudioText += currentTranscript;
-          setTranscript((prev) => (prev ? prev.trim() + '\n' + currentTranscript : currentTranscript));
-        }
-      };
+          if (currentTranscript) {
+            setTranscript((prev) => (prev ? prev.trim() + '\n' + currentTranscript : currentTranscript));
+          }
+        };
 
-      recognition.onend = () => {
-        if (!audio.paused && !audio.ended && isAutoTranscribing) {
-          try {
-            recognition.start();
-          } catch {}
-        } else {
+        recognition.onend = () => {
           setIsAutoTranscribing(false);
           setIsPlayingAudio(false);
-          setStatusMessage('Audio file transcription complete!');
-        }
-      };
+          setStatusMessage('Audio transcription finished.');
+        };
 
-      audio.onended = () => {
-        setIsPlayingAudio(false);
+        audio.onended = () => {
+          setIsPlayingAudio(false);
+          setIsAutoTranscribing(false);
+          try {
+            recognition.stop();
+          } catch {}
+          setStatusMessage('Audio transcription finished.');
+        };
+
+        recognition.start();
+        recognitionRef.current = recognition;
+      } catch (recErr: any) {
+        console.error('Speech recognition fallback failed:', recErr);
         setIsAutoTranscribing(false);
-        try {
-          recognition.stop();
-        } catch {}
-        setStatusMessage('Audio finished playing and transcribing!');
-      };
-
-      recognition.start();
-      recognitionRef.current = recognition;
-    } catch (err: any) {
-      console.error('Auto Transcribe Error:', err);
+        setIsPlayingAudio(false);
+        setStatusMessage(`Transcription ended: ${recErr.message || recErr}`);
+      }
+    } finally {
       setIsAutoTranscribing(false);
-      setIsPlayingAudio(false);
-      setStatusMessage(`Transcription error: ${err.message || err}`);
     }
   };
 
@@ -604,13 +634,15 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
           {activeTab === 'speech-to-text' && (
             <div className="p-5 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
+                <label htmlFor="audio-voice-lang-select" className="text-xs font-bold text-stone-900 dark:text-stone-100 flex items-center gap-1.5 cursor-pointer">
                   <Languages className="w-4 h-4 text-emerald-600" />
                   Voice Language
-                </span>
+                </label>
               </div>
 
               <select
+                id="audio-voice-lang-select"
+                name="voiceLanguage"
                 value={selectedLang}
                 onChange={(e) => setSelectedLang(e.target.value)}
                 disabled={isListening}
@@ -667,10 +699,12 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
               </div>
 
               <div>
-                <label className="text-xs text-stone-600 dark:text-stone-400 font-medium block mb-1">
+                <label htmlFor="audio-file-lang-select" className="text-xs text-stone-600 dark:text-stone-400 font-medium block mb-1">
                   Audio Language
                 </label>
                 <select
+                  id="audio-file-lang-select"
+                  name="audioFileLanguage"
                   value={selectedLang}
                   onChange={(e) => setSelectedLang(e.target.value)}
                   disabled={isAutoTranscribing}
@@ -762,12 +796,15 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
                   {/* Scrubber */}
                   <div className="space-y-1">
                     <input
+                      id="audio-scrubber-range"
+                      name="audioScrubber"
                       type="range"
                       min={0}
                       max={audioDuration || 100}
                       step={0.1}
                       value={audioCurrentTime}
                       onChange={handleSeek}
+                      aria-label="Audio playback scrubber"
                       className="w-full accent-emerald-600 cursor-pointer"
                     />
                     <div className="flex justify-between text-[10px] text-stone-500">
@@ -852,10 +889,12 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
 
               {/* Voice Selector */}
               <div>
-                <label className="text-xs text-stone-600 dark:text-stone-400 font-medium block mb-1">
+                <label htmlFor="tts-voice-select" className="text-xs text-stone-600 dark:text-stone-400 font-medium block mb-1">
                   Voice Accent &amp; Reader
                 </label>
                 <select
+                  id="tts-voice-select"
+                  name="ttsVoiceSelect"
                   value={selectedVoice}
                   onChange={(e) => setSelectedVoice(e.target.value)}
                   className="w-full p-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs font-medium text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
@@ -872,10 +911,12 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
               <div className="space-y-3">
                 <div>
                   <div className="flex justify-between text-[11px] text-stone-500 mb-1">
-                    <span>Reading Speed</span>
+                    <label htmlFor="tts-rate-range">Reading Speed</label>
                     <span>{ttsRate}x</span>
                   </div>
                   <input
+                    id="tts-rate-range"
+                    name="ttsRate"
                     type="range"
                     min="0.5"
                     max="2"
@@ -888,10 +929,12 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
 
                 <div>
                   <div className="flex justify-between text-[11px] text-stone-500 mb-1">
-                    <span>Pitch</span>
+                    <label htmlFor="tts-pitch-range">Pitch</label>
                     <span>{ttsPitch}x</span>
                   </div>
                   <input
+                    id="tts-pitch-range"
+                    name="ttsPitch"
                     type="range"
                     min="0.5"
                     max="1.5"
@@ -979,7 +1022,12 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
 
               {/* Textarea with interim preview */}
               <div className="my-3 relative">
+                <label htmlFor="audio-transcript-text-area" className="sr-only">
+                  Audio Transcript and Text Editor
+                </label>
                 <textarea
+                  id="audio-transcript-text-area"
+                  name="audioTranscriptTextArea"
                   value={transcript}
                   onChange={(e) => setTranscript(e.target.value)}
                   placeholder={

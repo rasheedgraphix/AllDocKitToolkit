@@ -21,7 +21,7 @@ import { createWorker } from 'tesseract.js';
 import { DropZone } from '../DropZone';
 import { ProgressBar } from '../ProgressBar';
 import { downloadBlob, createZipAndDownload, getPdfInfo } from '../../utils/fileHelpers';
-import { renderPdfPagesToImages, parsePageRange } from '../../utils/pdfOperations';
+import { renderPdfPagesToImages, parsePageRange, extractNativePdfText } from '../../utils/pdfOperations';
 import {
   preprocessImageForOcr,
   exportToDocx,
@@ -29,6 +29,7 @@ import {
   exportToRtf,
   exportToMarkdown,
   exportToHtml,
+  cleanBookOcrText,
 } from '../../utils/ocrDocExporter';
 import { HistoryItem } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
@@ -173,43 +174,66 @@ export const BookOcrConverterView: React.FC<BookOcrConverterViewProps> = ({ onAd
 
       if (isPdf) {
         const targetPageList = parsePageRange(pageRange || '1-5', pdfPageCount || 1000);
-        setStatusText(`Rendering ${targetPageList.length} pages from PDF...`);
-        setProgress(15);
-        const renderedPages = await renderPdfPagesToImages(
-          selectedFile,
-          'png',
-          0.95,
-          2.0,
-          targetPageList
-        );
+        
+        // Step 1: Check if PDF has embedded native selectable text
+        setStatusText(`Checking PDF text layer for ${targetPageList.length} pages...`);
+        const nativeTexts = await extractNativePdfText(selectedFile, targetPageList);
+        const hasNativeText = Object.keys(nativeTexts).length === targetPageList.length;
 
-        for (let i = 0; i < renderedPages.length; i++) {
-          const page = renderedPages[i];
-          const pagePercent = Math.round(15 + ((i + 1) / renderedPages.length) * 80);
-          setProgress(pagePercent);
-          setStatusText(`Analyzing and reading Page ${page.pageNumber} (${i + 1}/${renderedPages.length})...`);
-
-          const pageUrl = URL.createObjectURL(page.blob);
-          let targetUrl = pageUrl;
-          if (enablePreprocessing) {
-            try {
-              targetUrl = await preprocessImageForOcr(pageUrl, {
-                contrast: contrastBoost,
-                brightness,
-                binarize,
-                threshold,
-              });
-            } catch {
-              targetUrl = pageUrl;
-            }
+        if (hasNativeText) {
+          setProgress(90);
+          setStatusText('Extracted 100% crystal clean text from PDF document!');
+          for (const pNum of targetPageList) {
+            const pageTxt = nativeTexts[pNum] || '';
+            fullExtractedText += (fullExtractedText ? `\n\n=== [ Page ${pNum} ] ===\n\n` : `=== [ Page ${pNum} ] ===\n\n`) + pageTxt;
           }
+        } else {
+          // Step 2: High DPI render for scanned book pages
+          setStatusText(`Rendering ${targetPageList.length} pages at high-resolution...`);
+          setProgress(15);
+          const renderedPages = await renderPdfPagesToImages(
+            selectedFile,
+            'png',
+            0.95,
+            2.5,
+            targetPageList
+          );
 
-          const ret = await worker.recognize(targetUrl);
-          URL.revokeObjectURL(pageUrl);
-          const pageText = ret?.data?.text?.trim() || '';
+          for (let i = 0; i < renderedPages.length; i++) {
+            const page = renderedPages[i];
+            const pagePercent = Math.round(15 + ((i + 1) / renderedPages.length) * 80);
+            setProgress(pagePercent);
+            setStatusText(`Analyzing and reading Page ${page.pageNumber} (${i + 1}/${renderedPages.length})...`);
 
-          if (pageText) {
-            fullExtractedText += (fullExtractedText ? `\n\n=== [ Page ${page.pageNumber} ] ===\n\n` : '') + pageText;
+            let pageText = '';
+            // If this specific page has native text, use it
+            if (nativeTexts[page.pageNumber]) {
+              pageText = nativeTexts[page.pageNumber];
+            } else {
+              const pageUrl = URL.createObjectURL(page.blob);
+              let targetUrl = pageUrl;
+              if (enablePreprocessing) {
+                try {
+                  targetUrl = await preprocessImageForOcr(pageUrl, {
+                    contrast: contrastBoost,
+                    brightness,
+                    binarize,
+                    threshold,
+                  });
+                } catch {
+                  targetUrl = pageUrl;
+                }
+              }
+
+              const ret = await worker.recognize(targetUrl);
+              URL.revokeObjectURL(pageUrl);
+              pageText = ret?.data?.text?.trim() || '';
+              pageText = cleanBookOcrText(pageText);
+            }
+
+            if (pageText) {
+              fullExtractedText += (fullExtractedText ? `\n\n=== [ Page ${page.pageNumber} ] ===\n\n` : `=== [ Page ${page.pageNumber} ] ===\n\n`) + pageText;
+            }
           }
         }
       } else {
@@ -231,10 +255,11 @@ export const BookOcrConverterView: React.FC<BookOcrConverterViewProps> = ({ onAd
         }
 
         setProgress(50);
-        setStatusText(`Extracting book writing and document text (${language.toUpperCase()})...`);
+        setStatusText(`Extracting book writing and document text (${effectiveLang.toUpperCase()})...`);
 
         const ret = await worker.recognize(targetSource);
         fullExtractedText = ret?.data?.text?.trim() || '';
+        fullExtractedText = cleanBookOcrText(fullExtractedText);
       }
 
       try {
@@ -274,10 +299,7 @@ export const BookOcrConverterView: React.FC<BookOcrConverterViewProps> = ({ onAd
 
   const handleAutoCleanText = () => {
     if (!extractedText) return;
-    let cleaned = extractedText
-      .replace(/(\w+)-\s*\n\s*(\w+)/g, '$1$2')
-      .replace(/\n{3,}/g, '\n\n')
-      .replace(/\s+([.,;:!?])/g, '$1');
+    const cleaned = cleanBookOcrText(extractedText);
     setExtractedText(cleaned);
   };
 
@@ -451,10 +473,12 @@ export const BookOcrConverterView: React.FC<BookOcrConverterViewProps> = ({ onAd
 
               {/* Language Selector */}
               <div>
-                <label className="text-xs text-stone-600 dark:text-stone-400 font-medium block mb-1">
+                <label htmlFor="ocr-document-language" className="text-xs text-stone-600 dark:text-stone-400 font-medium block mb-1">
                   Document Language
                 </label>
                 <select
+                  id="ocr-document-language"
+                  name="documentLanguage"
                   value={language}
                   onChange={(e) => setLanguage(e.target.value)}
                   disabled={isProcessing}
@@ -472,7 +496,7 @@ export const BookOcrConverterView: React.FC<BookOcrConverterViewProps> = ({ onAd
               {isPdf && (
                 <div className="pt-2 border-t border-stone-200 dark:border-stone-800">
                   <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs text-stone-700 dark:text-stone-300 font-medium">
+                    <label htmlFor="ocr-page-range" className="text-xs text-stone-700 dark:text-stone-300 font-medium">
                       Pages to OCR (Total: {pdfPageCount})
                     </label>
                     <div className="flex items-center gap-1.5 text-[11px]">
@@ -494,6 +518,8 @@ export const BookOcrConverterView: React.FC<BookOcrConverterViewProps> = ({ onAd
                     </div>
                   </div>
                   <input
+                    id="ocr-page-range"
+                    name="pageRange"
                     type="text"
                     value={pageRange}
                     onChange={(e) => setPageRange(e.target.value)}
@@ -510,15 +536,17 @@ export const BookOcrConverterView: React.FC<BookOcrConverterViewProps> = ({ onAd
               {/* Auto Preprocessing Toggle */}
               <div className="pt-2 border-t border-stone-200 dark:border-stone-800 space-y-3">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs text-stone-700 dark:text-stone-300 font-medium flex items-center gap-1.5">
+                  <label htmlFor="ocr-auto-clean-checkbox" className="text-xs text-stone-700 dark:text-stone-300 font-medium flex items-center gap-1.5 cursor-pointer">
                     <Sparkles className="w-3.5 h-3.5 text-amber-600" />
                     Auto-Clean &amp; Enhance Contrast
                   </label>
                   <input
+                    id="ocr-auto-clean-checkbox"
+                    name="autoCleanCheckbox"
                     type="checkbox"
                     checked={enablePreprocessing}
                     onChange={(e) => setEnablePreprocessing(e.target.checked)}
-                    className="accent-amber-600 rounded"
+                    className="accent-amber-600 rounded cursor-pointer"
                   />
                 </div>
 
@@ -526,10 +554,12 @@ export const BookOcrConverterView: React.FC<BookOcrConverterViewProps> = ({ onAd
                   <div className="space-y-3 p-3 bg-stone-50 dark:bg-stone-800/50 rounded-xl border border-stone-200/60 dark:border-stone-800">
                     <div>
                       <div className="flex justify-between text-[11px] text-stone-500 mb-1">
-                        <span>Contrast Boost</span>
+                        <label htmlFor="ocr-contrast-boost">Contrast Boost</label>
                         <span>+{contrastBoost}%</span>
                       </div>
                       <input
+                        id="ocr-contrast-boost"
+                        name="contrastBoost"
                         type="range"
                         min="0"
                         max="80"
@@ -540,14 +570,16 @@ export const BookOcrConverterView: React.FC<BookOcrConverterViewProps> = ({ onAd
                     </div>
 
                     <div className="flex items-center justify-between pt-1">
-                      <label className="text-[11px] text-stone-600 dark:text-stone-400">
+                      <label htmlFor="ocr-binarize-checkbox" className="text-[11px] text-stone-600 dark:text-stone-400 cursor-pointer">
                         High Contrast B&amp;W Mode
                       </label>
                       <input
+                        id="ocr-binarize-checkbox"
+                        name="binarizeCheckbox"
                         type="checkbox"
                         checked={binarize}
                         onChange={(e) => setBinarize(e.target.checked)}
-                        className="accent-amber-600 rounded"
+                        className="accent-amber-600 rounded cursor-pointer"
                       />
                     </div>
                   </div>
@@ -634,8 +666,11 @@ export const BookOcrConverterView: React.FC<BookOcrConverterViewProps> = ({ onAd
                     <div className="flex items-center gap-1.5 bg-stone-50 dark:bg-stone-800 px-2 py-1 rounded-lg border border-stone-200 dark:border-stone-700">
                       <Search className="w-3.5 h-3.5 text-stone-400" />
                       <input
+                        id="ocr-find-input"
+                        name="findInput"
                         type="text"
                         placeholder="Find..."
+                        aria-label="Find word"
                         value={findWord}
                         onChange={(e) => setFindWord(e.target.value)}
                         className="bg-transparent text-xs outline-none w-24 sm:w-32 text-stone-900 dark:text-stone-100"
@@ -643,8 +678,11 @@ export const BookOcrConverterView: React.FC<BookOcrConverterViewProps> = ({ onAd
                     </div>
                     <ArrowRight className="w-3 h-3 text-stone-400" />
                     <input
+                      id="ocr-replace-input"
+                      name="replaceInput"
                       type="text"
                       placeholder="Replace with..."
+                      aria-label="Replace word"
                       value={replaceWord}
                       onChange={(e) => setReplaceWord(e.target.value)}
                       className="bg-stone-50 dark:bg-stone-800 px-2.5 py-1 rounded-lg border border-stone-200 dark:border-stone-700 text-xs outline-none w-24 sm:w-32 text-stone-900 dark:text-stone-100"
@@ -662,7 +700,12 @@ export const BookOcrConverterView: React.FC<BookOcrConverterViewProps> = ({ onAd
 
               {/* Textarea */}
               <div className="my-3 flex-1">
+                <label htmlFor="ocr-extracted-text-area" className="sr-only">
+                  Extracted Document Text
+                </label>
                 <textarea
+                  id="ocr-extracted-text-area"
+                  name="extractedTextArea"
                   value={extractedText}
                   onChange={(e) => setExtractedText(e.target.value)}
                   placeholder={

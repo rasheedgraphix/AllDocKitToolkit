@@ -782,3 +782,48 @@ export async function protectPdfDocument(
   onProgress?.(100, 'Password protection applied successfully!');
   return { blob, pageCount };
 }
+
+/**
+ * Extract native selectable text from PDF if available
+ */
+export async function extractNativePdfText(
+  file: File,
+  pageNumbers?: number[]
+): Promise<{ [pageNum: number]: string }> {
+  try {
+    const pdfjs = await getPdfJs();
+    const arrayBuffer = await file.arrayBuffer();
+    const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+    const pdfDocument = await loadingTask.promise;
+    const numPages = pdfDocument.numPages;
+
+    const targetPages =
+      pageNumbers && pageNumbers.length > 0
+        ? pageNumbers.filter((p) => p >= 1 && p <= numPages)
+        : Array.from({ length: numPages }, (_, idx) => idx + 1);
+
+    const result: { [pageNum: number]: string } = {};
+
+    for (const pageNum of targetPages) {
+      try {
+        const page = await pdfDocument.getPage(pageNum);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+          .map((item: any) => (item.str ? item.str : ''))
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        if (pageText && pageText.length > 20) {
+          result[pageNum] = pageText;
+        }
+      } catch (e) {
+        console.warn(`Error extracting native text from page ${pageNum}:`, e);
+      }
+    }
+    return result;
+  } catch (err) {
+    console.warn('Native PDF text extraction failed or not applicable:', err);
+    return {};
+  }
+}
