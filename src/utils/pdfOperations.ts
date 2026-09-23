@@ -1,13 +1,14 @@
 import { PDFDocument, rgb, degrees, StandardFonts } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { encryptPDF } from '@pdfsmaller/pdf-encrypt';
 
-// Ensure PDF.js worker is properly set for Vite / Web browsers
+// Ensure PDF.js worker is properly bundled locally for 100% OFFLINE execution
 if (typeof window !== 'undefined') {
   try {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
   } catch (e) {
-    console.warn('Could not set pdfjs workerSrc:', e);
+    console.warn('Could not set local pdfjs workerSrc, using fallback:', e);
   }
 }
 

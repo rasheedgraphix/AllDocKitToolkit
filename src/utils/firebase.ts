@@ -129,9 +129,13 @@ export function getNotificationStatus(): {
   if (typeof window === 'undefined' || !('Notification' in window)) {
     return { enabled: false, token: null, permission: 'unsupported' };
   }
-  const enabled =
-    localStorage.getItem('notifications_enabled') === 'true' &&
-    Notification.permission === 'granted';
+  const savedPref = localStorage.getItem('notifications_enabled');
+  // Default to enabled (true) if user hasn't explicitly set to 'false'
+  const isPrefEnabled = savedPref === null || savedPref === 'true';
+  const isGranted = Notification.permission === 'granted';
+  
+  // If browser permission is granted and user hasn't disabled it, or default state
+  const enabled = isPrefEnabled && (isGranted || savedPref === null);
   const token = localStorage.getItem('fcm_token');
   return {
     enabled,

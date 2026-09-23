@@ -133,23 +133,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   }, []);
 
   const handleChoosePlan = (plan: 'monthly' | 'annual') => {
-    setTestLicense(plan);
-    setLicense(checkLicense());
-    setPurchaseNotice(`Successfully upgraded to PixDoc Pro (${plan === 'monthly' ? 'Monthly' : 'Annual'})!`);
-    setTimeout(() => setPurchaseNotice(null), 4000);
+    window.dispatchEvent(new CustomEvent('open-upgrade-modal', { detail: { plan } }));
   };
 
   const handleAnnualClick = () => {
-    if (!isTrialUsed()) {
-      const started = startFreeTrial();
-      if (started) {
-        setLicense(checkLicense());
-        setPurchaseNotice('Trial Started! 7 days unlimited free. Enjoy!');
-        setTimeout(() => setPurchaseNotice(null), 5000);
-      }
-    } else {
-      handleChoosePlan('annual');
-    }
+    window.dispatchEvent(new CustomEvent('open-upgrade-modal', { detail: { plan: 'annual' } }));
   };
 
   const handleRestorePurchase = () => {

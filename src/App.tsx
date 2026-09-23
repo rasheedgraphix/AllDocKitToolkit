@@ -32,6 +32,10 @@ import {
   AppNotification,
 } from './utils/firebase';
 import { NotificationToast } from './components/NotificationToast';
+import { AdBanner } from './components/ads/AdBanner';
+import { AdsterraScriptLoader } from './components/ads/AdsterraScriptLoader';
+import { AdsterraNativeBanner } from './components/ads/AdsterraNativeBanner';
+import { UpgradeModal } from './components/UpgradeModal';
 
 const TOOL_NAMES: Record<ToolId, string> = {
   'pdf-merger': 'PDF Merger',
@@ -81,6 +85,19 @@ export default function App() {
   const [autoUpdateInfo, setAutoUpdateInfo] = useState<UpdateInfo | null>(null);
   const [showAutoUpdateModal, setShowAutoUpdateModal] = useState(false);
   const [toastNotification, setToastNotification] = useState<AppNotification | null>(null);
+
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradePlan, setUpgradePlan] = useState<'monthly' | 'annual' | 'lifetime'>('annual');
+
+  useEffect(() => {
+    const handleOpenUpgrade = (e: any) => {
+      const plan = e.detail?.plan || 'annual';
+      setUpgradePlan(plan);
+      setShowUpgradeModal(true);
+    };
+    window.addEventListener('open-upgrade-modal', handleOpenUpgrade);
+    return () => window.removeEventListener('open-upgrade-modal', handleOpenUpgrade);
+  }, []);
 
   // Silently check for updates 3 seconds after application startup
   useEffect(() => {
@@ -260,16 +277,34 @@ export default function App() {
                   onOpenAuth={openLoginModal}
                 />
               )}
+
+              {/* Conditional Responsive Bottom Ad/Sponsor Banner (Hidden when Offline) */}
+              {activeTool !== 'settings' && activeTool !== 'history' && (
+                <div className="space-y-4 max-w-4xl mx-auto my-4">
+                  <AdBanner slotType="bottom" />
+                  <AdsterraNativeBanner />
+                </div>
+              )}
             </motion.div>
           </AnimatePresence>
         </main>
       </div>
+
+      {/* Adsterra Online Background Script Loader (SocialBar & Popunder) */}
+      <AdsterraScriptLoader />
 
       {/* Auto-Update Prompt Modal */}
       <UpdateModal
         isOpen={showAutoUpdateModal}
         updateInfo={autoUpdateInfo}
         onClose={() => setShowAutoUpdateModal(false)}
+      />
+
+      {/* Interactive EasyPaisa & Pro Upgrade Modal */}
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        defaultPlan={upgradePlan}
+        onClose={() => setShowUpgradeModal(false)}
       />
 
       {/* Floating In-App Notification Toast */}

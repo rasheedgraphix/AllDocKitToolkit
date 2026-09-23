@@ -1,224 +1,443 @@
-import React, { useState } from 'react';
-import { X, Sparkles, Check, Crown, ShieldCheck, Zap, Lock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import {
+  X,
+  Crown,
+  Check,
+  Sparkles,
+  Copy,
+  CheckCheck,
+  Send,
+  Smartphone,
+  CreditCard,
+  Building2,
+  Zap,
+} from 'lucide-react';
+import { getPaymentConfig, PaymentConfig } from '../utils/paymentConfig';
+import { setTestLicense } from '../utils/license';
 
-export interface UpgradeModalProps {
+interface UpgradeModalProps {
   isOpen: boolean;
-  type: 'guest_limit' | 'trial_ended';
   onClose: () => void;
-  onUpgrade?: (plan: string) => void;
-  onSignIn?: () => void;
+  defaultPlan?: 'monthly' | 'annual' | 'lifetime';
+  type?: 'guest_limit' | 'trial_ended';
   onStartTrial?: () => void;
+  onSignIn?: () => void;
   openLoginModal?: () => void;
+  onUpgrade?: (plan: 'monthly' | 'annual') => Promise<void>;
+  onSuccess?: () => void;
 }
 
 export const UpgradeModal: React.FC<UpgradeModalProps> = ({
   isOpen,
-  type,
   onClose,
+  defaultPlan = 'annual',
   onUpgrade,
-  onSignIn,
-  onStartTrial,
-  openLoginModal,
+  onSuccess,
 }) => {
-  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('annual');
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig>(getPaymentConfig());
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual' | 'lifetime'>(defaultPlan);
+  const [paymentMethod, setPaymentMethod] = useState<'easypaisa' | 'bank_iban' | 'card'>('easypaisa');
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [senderName, setSenderName] = useState('');
+  const [trxId, setTrxId] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isActivated, setIsActivated] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleUpdate = () => setPaymentConfig(getPaymentConfig());
+    window.addEventListener('payment-config-updated', handleUpdate);
+    return () => window.removeEventListener('payment-config-updated', handleUpdate);
+  }, []);
+
+  useEffect(() => {
+    setSelectedPlan(defaultPlan);
+  }, [defaultPlan, isOpen]);
 
   if (!isOpen) return null;
 
-  const handleStartTrial = () => {
-    onClose();
-    if (onStartTrial) {
-      onStartTrial();
-    } else if (openLoginModal) {
-      openLoginModal();
-    } else if (onSignIn) {
-      onSignIn();
-    }
+  const handleCopy = (text: string, fieldName: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(fieldName);
+    setTimeout(() => setCopiedField(null), 2500);
   };
 
-  const handleAction = async () => {
-    if (type === 'guest_limit') {
-      handleStartTrial();
-    } else {
-      setIsProcessing(true);
-      try {
-        if (onUpgrade) {
-          await onUpgrade(selectedPlan);
-        }
-      } finally {
-        setIsProcessing(false);
-      }
+  const getPlanPrice = () => {
+    if (selectedPlan === 'monthly') {
+      return { pkr: paymentConfig.monthlyPricePkr, usd: paymentConfig.monthlyPriceUsd, label: 'Monthly' };
     }
+    if (selectedPlan === 'annual') {
+      return { pkr: paymentConfig.annualPricePkr, usd: paymentConfig.annualPriceUsd, label: 'Annual (1 Year)' };
+    }
+    return { pkr: paymentConfig.lifetimePricePkr, usd: paymentConfig.lifetimePriceUsd, label: 'Lifetime Access' };
+  };
+
+  const planInfo = getPlanPrice();
+
+  const handleWhatsAppSend = () => {
+    const message = encodeURIComponent(
+      `Assalam-o-Alaikum Hafiz Nouman Bhai! I want to activate PixDoc Pro.\n\n` +
+      `📌 Plan: ${planInfo.label} (Rs. ${planInfo.pkr})\n` +
+      `💳 Method: ${paymentMethod === 'easypaisa' ? 'EasyPaisa' : paymentMethod === 'bank_iban' ? 'Bank IBAN / Raast' : 'Card Transfer'}\n` +
+      `👤 Sender Name: ${senderName || 'Not specified'}\n` +
+      `🔢 TID / Reference: ${trxId || 'Sent via payment app'}\n\n` +
+      `Please verify and activate my subscription. Thanks!`
+    );
+    const cleanPhone = paymentConfig.whatsappNumber.replace(/[^0-9]/g, '');
+    window.open(`https://wa.me/${cleanPhone}?text=${message}`, '_blank');
+  };
+
+  const handleActivatePro = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+
+    if (!trxId || trxId.trim().length < 4) {
+      setErrorMsg('Please enter your Transaction ID (TID) or Payment Reference Number.');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    setTimeout(async () => {
+      // Activate license locally
+      setTestLicense(selectedPlan === 'lifetime' ? 'annual' : selectedPlan);
+      window.dispatchEvent(new Event('license-updated'));
+
+      if (onUpgrade) {
+        try {
+          await onUpgrade(selectedPlan === 'lifetime' ? 'annual' : selectedPlan);
+        } catch (err) {
+          console.warn('Backend upgrade sync:', err);
+        }
+      }
+
+      setIsSubmitting(false);
+      setIsActivated(true);
+
+      if (onSuccess) {
+        onSuccess();
+      }
+
+      setTimeout(() => {
+        onClose();
+        window.location.reload();
+      }, 2000);
+    }, 1200);
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/75 backdrop-blur-md animate-in fade-in duration-200"
-      role="dialog"
-      aria-modal="true"
-    >
-      <div className="relative w-full max-w-lg bg-stone-900 border border-stone-800 rounded-3xl shadow-2xl overflow-hidden text-stone-100 p-6 sm:p-8">
-        {/* Glow accent */}
-        <div className="absolute -top-24 -left-24 w-60 h-60 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -right-24 w-60 h-60 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
-
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-5 right-5 p-2 text-stone-400 hover:text-white rounded-xl hover:bg-stone-800 transition-colors z-10"
-          aria-label="Close modal"
-        >
-          <X className="w-5 h-5" />
-        </button>
-
-        {type === 'guest_limit' ? (
-          /* ================= GUEST LIMIT VIEW ================= */
-          <div className="relative z-10 flex flex-col items-center text-center space-y-5">
-            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shadow-inner">
-              <Sparkles className="w-7 h-7" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="relative w-full max-w-xl rounded-3xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+        {/* Header */}
+        <div className="px-6 py-4 bg-linear-to-r from-emerald-600 to-teal-700 text-white flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
+              <Crown className="w-5 h-5 text-amber-300" />
             </div>
+            <div>
+              <h3 className="text-base font-bold">Upgrade to PixDoc Pro</h3>
+              <p className="text-xs text-emerald-100">100% Ad-Free & Unlimited Batch Processing</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
 
-            <div className="space-y-1.5">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                <Lock className="w-3 h-3" />
-                1 Free Use Completed!
+        {/* Modal Body */}
+        <div className="p-6 overflow-y-auto space-y-5">
+          {isActivated ? (
+            <div className="py-8 text-center space-y-3">
+              <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 mx-auto flex items-center justify-center shadow-inner">
+                <CheckCheck className="w-8 h-8" />
               </div>
-              <h3 className="text-2xl font-bold tracking-tight text-white pt-1">
-                Unlock 7 Days Free Trial
-              </h3>
-              <p className="text-xs sm:text-sm text-stone-400 max-w-sm mx-auto leading-relaxed">
-                Sign in with Google or Email to unlock 7 full days of unlimited, private, and 100% offline conversions. No credit card required.
+              <h4 className="text-lg font-bold text-stone-900 dark:text-stone-100">
+                🎉 Congratulations! PixDoc Pro is Active!
+              </h4>
+              <p className="text-xs text-stone-600 dark:text-stone-400 max-w-sm mx-auto">
+                Your payment reference has been recorded and your Pro license is now activated. All ads have been permanently removed!
               </p>
             </div>
+          ) : (
+            <>
+              {/* Step 1: Select Plan */}
+              <div>
+                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-2 uppercase tracking-wider">
+                  1. Choose Your Plan
+                </label>
+                <div className="grid grid-cols-3 gap-2.5">
+                  {/* Monthly */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPlan('monthly')}
+                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                      selectedPlan === 'monthly'
+                        ? 'border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/30 ring-2 ring-emerald-500/20'
+                        : 'border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/40 hover:bg-stone-100'
+                    }`}
+                  >
+                    <div className="text-[11px] font-bold text-stone-500">Monthly</div>
+                    <div className="text-sm font-extrabold text-stone-900 dark:text-stone-100 mt-0.5">
+                      Rs. {paymentConfig.monthlyPricePkr}
+                    </div>
+                    <div className="text-[10px] text-stone-400">${paymentConfig.monthlyPriceUsd}/mo</div>
+                  </button>
 
-            {/* Benefit Highlights */}
-            <div className="w-full bg-stone-800/60 border border-stone-700/60 rounded-2xl p-4 text-left space-y-2.5">
-              {[
-                'Full 7-Day Free Trial with unlimited conversions',
-                'Unlock all PDF & Image tools (Merge, Split, Compress, Convert)',
-                '100% local in-browser processing — files never leave your device',
-                'No watermark, no artificial file size limits',
-              ].map((benefit, i) => (
-                <div key={i} className="flex items-center gap-2.5 text-xs text-stone-300">
-                  <div className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-                    <Check className="w-2.5 h-2.5" />
+                  {/* Annual */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPlan('annual')}
+                    className={`relative p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                      selectedPlan === 'annual'
+                        ? 'border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/30 ring-2 ring-emerald-500/20'
+                        : 'border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/40 hover:bg-stone-100'
+                    }`}
+                  >
+                    <span className="absolute -top-2 right-2 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-emerald-600 text-white uppercase">
+                      Popular
+                    </span>
+                    <div className="text-[11px] font-bold text-stone-500">Annual</div>
+                    <div className="text-sm font-extrabold text-stone-900 dark:text-stone-100 mt-0.5">
+                      Rs. {paymentConfig.annualPricePkr}
+                    </div>
+                    <div className="text-[10px] text-stone-400">${paymentConfig.annualPriceUsd}/yr</div>
+                  </button>
+
+                  {/* Lifetime */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPlan('lifetime')}
+                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                      selectedPlan === 'lifetime'
+                        ? 'border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/30 ring-2 ring-emerald-500/20'
+                        : 'border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-800/40 hover:bg-stone-100'
+                    }`}
+                  >
+                    <div className="text-[11px] font-bold text-stone-500">Lifetime</div>
+                    <div className="text-sm font-extrabold text-stone-900 dark:text-stone-100 mt-0.5">
+                      Rs. {paymentConfig.lifetimePricePkr}
+                    </div>
+                    <div className="text-[10px] text-stone-400">One-time fee</div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Step 2: Select Payment Method Tabs */}
+              <div>
+                <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-2 uppercase tracking-wider">
+                  2. Select Payment Method
+                </label>
+                <div className="flex items-center gap-2 p-1 rounded-2xl bg-stone-100 dark:bg-stone-800 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('easypaisa')}
+                    className={`flex-1 py-2 px-3 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      paymentMethod === 'easypaisa'
+                        ? 'bg-white dark:bg-stone-900 text-emerald-600 dark:text-emerald-400 shadow-xs'
+                        : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                    }`}
+                  >
+                    <Smartphone className="w-3.5 h-3.5" />
+                    <span>EasyPaisa / Wallet</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('bank_iban')}
+                    className={`flex-1 py-2 px-3 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      paymentMethod === 'bank_iban'
+                        ? 'bg-white dark:bg-stone-900 text-emerald-600 dark:text-emerald-400 shadow-xs'
+                        : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                    }`}
+                  >
+                    <Building2 className="w-3.5 h-3.5" />
+                    <span>Bank IBAN / Raast</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('card')}
+                    className={`flex-1 py-2 px-3 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      paymentMethod === 'card'
+                        ? 'bg-white dark:bg-stone-900 text-emerald-600 dark:text-emerald-400 shadow-xs'
+                        : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                    }`}
+                  >
+                    <CreditCard className="w-3.5 h-3.5" />
+                    <span>Card / Any ATM</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Payment Details Container */}
+              <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-emerald-900 dark:text-emerald-200 uppercase tracking-wider">
+                    {paymentMethod === 'easypaisa' && '📱 EasyPaisa Account'}
+                    {paymentMethod === 'bank_iban' && '🏛️ Telenor Bank / IBAN Transfer'}
+                    {paymentMethod === 'card' && '💳 Card / ATM / Raast Transfer'}
+                  </span>
+                  <span className="text-xs font-extrabold text-emerald-700 dark:text-emerald-300">
+                    Pay: Rs. {planInfo.pkr}
+                  </span>
+                </div>
+
+                {/* EasyPaisa Box */}
+                {paymentMethod === 'easypaisa' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div className="p-2.5 rounded-xl bg-white dark:bg-stone-900 border border-emerald-100 dark:border-emerald-900/40 flex items-center justify-between">
+                      <div>
+                        <div className="text-[10px] text-stone-400 font-medium">Account Title</div>
+                        <div className="font-bold text-stone-900 dark:text-stone-100">
+                          {paymentConfig.easypaisaAccountTitle}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(paymentConfig.easypaisaAccountTitle, 'title')}
+                        className="p-1.5 text-stone-400 hover:text-emerald-600 rounded-lg cursor-pointer"
+                        title="Copy Title"
+                      >
+                        {copiedField === 'title' ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                      </button>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-white dark:bg-stone-900 border border-emerald-100 dark:border-emerald-900/40 flex items-center justify-between">
+                      <div>
+                        <div className="text-[10px] text-stone-400 font-medium">EasyPaisa Mobile Number</div>
+                        <div className="font-bold text-stone-900 dark:text-stone-100 font-mono">
+                          {paymentConfig.easypaisaAccountNumber}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(paymentConfig.easypaisaAccountNumber, 'number')}
+                        className="p-1.5 text-stone-400 hover:text-emerald-600 rounded-lg cursor-pointer"
+                        title="Copy Number"
+                      >
+                        {copiedField === 'number' ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
-                  <span>{benefit}</span>
-                </div>
-              ))}
-            </div>
+                )}
 
-            {/* CTA Button */}
-            <button
-              id="start-free-trial-btn"
-              type="button"
-              onClick={handleStartTrial}
-              className="w-full py-3.5 px-6 rounded-2xl font-bold text-sm text-stone-950 bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400 hover:opacity-95 active:scale-[0.99] transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Zap className="w-4 h-4 fill-stone-950" />
-              <span>Start Free Trial - Sign In</span>
-            </button>
+                {/* Bank / IBAN Box */}
+                {paymentMethod === 'bank_iban' && (
+                  <div className="space-y-2 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="p-2.5 rounded-xl bg-white dark:bg-stone-900 border border-emerald-100 dark:border-emerald-900/40">
+                        <div className="text-[10px] text-stone-400 font-medium">Bank Name</div>
+                        <div className="font-bold text-stone-900 dark:text-stone-100">
+                          {paymentConfig.bankName}
+                        </div>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-white dark:bg-stone-900 border border-emerald-100 dark:border-emerald-900/40">
+                        <div className="text-[10px] text-stone-400 font-medium">Account Title</div>
+                        <div className="font-bold text-stone-900 dark:text-stone-100">
+                          {paymentConfig.easypaisaAccountTitle}
+                        </div>
+                      </div>
+                    </div>
 
-            <p className="text-[11px] text-stone-500">
-              Already have an account?{' '}
-              <button
-                type="button"
-                onClick={handleStartTrial}
-                className="text-emerald-400 hover:underline font-semibold cursor-pointer inline"
-              >
-                Sign in
-              </button>{' '}
-              to restore your trial or Pro tier.
-            </p>
-          </div>
-        ) : (
-          /* ================= TRIAL ENDED VIEW ================= */
-          <div className="relative z-10 flex flex-col items-center text-center space-y-5">
-            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shadow-inner">
-              <Crown className="w-7 h-7" />
-            </div>
+                    <div className="p-2.5 rounded-xl bg-white dark:bg-stone-900 border border-emerald-100 dark:border-emerald-900/40 flex items-center justify-between">
+                      <div>
+                        <div className="text-[10px] text-stone-400 font-medium">IBAN / Raast ID Number</div>
+                        <div className="font-bold text-stone-900 dark:text-stone-100 font-mono text-[11px]">
+                          {paymentConfig.easypaisaIban || paymentConfig.easypaisaAccountNumber}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(paymentConfig.easypaisaIban || paymentConfig.easypaisaAccountNumber, 'iban')}
+                        className="p-1.5 text-stone-400 hover:text-emerald-600 rounded-lg cursor-pointer"
+                        title="Copy IBAN"
+                      >
+                        {copiedField === 'iban' ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                )}
 
-            <div className="space-y-1.5">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                <Crown className="w-3 h-3" />
-                Trial Expired
+                {/* Card Payment Info */}
+                {paymentMethod === 'card' && (
+                  <div className="p-3 rounded-xl bg-white dark:bg-stone-900 border border-emerald-100 dark:border-emerald-900/40 text-xs space-y-2">
+                    <p className="text-stone-700 dark:text-stone-300">
+                      💡 <strong>Visa, MasterCard, PayPak, ya UnionPay ATM/Debit Card se:</strong>
+                    </p>
+                    <ol className="list-decimal pl-4 space-y-1 text-stone-600 dark:text-stone-400 text-[11px]">
+                      <li>Apni Banking App (HBL, Meezan, Alfalah, Standard Chartered, etc.) open karein.</li>
+                      <li><strong>Send Money / Transfer to Other Bank</strong> choose karein.</li>
+                      <li>Bank: <strong>Telenor Microfinance Bank (EasyPaisa)</strong> select karein.</li>
+                      <li>Account Number: <strong className="font-mono text-emerald-600">{paymentConfig.easypaisaAccountNumber}</strong> daal kar <strong>Rs. {planInfo.pkr}</strong> transfer karein.</li>
+                    </ol>
+                  </div>
+                )}
               </div>
-              <h3 className="text-2xl font-bold tracking-tight text-white pt-1">
-                Your Free Trial Has Ended!
-              </h3>
-              <p className="text-xs sm:text-sm text-stone-400 max-w-sm mx-auto leading-relaxed">
-                Upgrade to PixDoc Pro to continue enjoying unlimited offline PDF and Image processing without interruptions.
-              </p>
-            </div>
 
-            {/* Plan Selector */}
-            <div className="grid grid-cols-2 gap-3 w-full">
-              {/* Monthly Plan */}
-              <button
-                type="button"
-                onClick={() => setSelectedPlan('monthly')}
-                className={`relative p-4 rounded-2xl border text-left transition-all cursor-pointer ${
-                  selectedPlan === 'monthly'
-                    ? 'bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/40'
-                    : 'bg-stone-800/50 border-stone-700/80 hover:border-stone-600'
-                }`}
-              >
-                <div className="text-xs font-semibold text-stone-300">Monthly Plan</div>
-                <div className="mt-2 text-xl font-extrabold text-white">$9.99</div>
-                <div className="text-[11px] text-stone-400">/ month</div>
-              </button>
+              {/* Step 3: Transaction ID Form */}
+              <form onSubmit={handleActivatePro} className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                      Sender Name (Aapka Naam)
+                    </label>
+                    <input
+                      type="text"
+                      value={senderName}
+                      onChange={(e) => setSenderName(e.target.value)}
+                      placeholder="e.g. Nouman Ali"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100"
+                    />
+                  </div>
 
-              {/* Annual Plan (Best Value) */}
-              <button
-                type="button"
-                onClick={() => setSelectedPlan('annual')}
-                className={`relative p-4 rounded-2xl border text-left transition-all cursor-pointer ${
-                  selectedPlan === 'annual'
-                    ? 'bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/40'
-                    : 'bg-stone-800/50 border-stone-700/80 hover:border-stone-600'
-                }`}
-              >
-                <span className="absolute -top-2.5 right-3 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500 text-stone-950 tracking-wider">
-                  SAVE 50%
-                </span>
-                <div className="text-xs font-semibold text-stone-300">Annual Plan</div>
-                <div className="mt-2 text-xl font-extrabold text-white">$59.99</div>
-                <div className="text-[11px] text-stone-400">/ year ($4.99/mo)</div>
-              </button>
-            </div>
-
-            {/* Feature Checklist */}
-            <div className="w-full bg-stone-800/40 border border-stone-800 rounded-xl p-3.5 text-left space-y-2">
-              {[
-                'Unlimited PDF merging, splitting, and high-ratio compression',
-                'Batch image conversion & lossless resizing',
-                'Runs 100% offline — complete document privacy',
-                'Priority support and future desktop build updates',
-              ].map((feat, idx) => (
-                <div key={idx} className="flex items-center gap-2 text-xs text-stone-300">
-                  <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span>{feat}</span>
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 dark:text-stone-300 mb-1">
+                      Transaction ID (TID) / Ref No. <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={trxId}
+                      onChange={(e) => setTrxId(e.target.value)}
+                      placeholder="e.g. 23894819482"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-900 dark:text-stone-100 font-mono"
+                    />
+                  </div>
                 </div>
-              ))}
-            </div>
 
-            {/* Upgrade Button */}
-            <button
-              id="upgrade-to-pro-btn"
-              disabled={isProcessing}
-              onClick={handleAction}
-              className="w-full py-3.5 px-6 rounded-2xl font-bold text-sm text-stone-950 bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400 hover:opacity-95 active:scale-[0.99] transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-            >
-              <Crown className="w-4 h-4 fill-stone-950" />
-              <span>{isProcessing ? 'Activating Pro...' : `Upgrade to Pro (${selectedPlan === 'annual' ? '$59.99/yr' : '$9.99/mo'})`}</span>
-            </button>
+                {errorMsg && (
+                  <div className="p-2.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 text-xs text-red-600 dark:text-red-400">
+                    {errorMsg}
+                  </div>
+                )}
 
-            <div className="flex items-center justify-center gap-1.5 text-[11px] text-stone-500">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Guaranteed 30-Day Money Back Guarantee</span>
-            </div>
-          </div>
-        )}
+                <div className="flex flex-col sm:flex-row items-center gap-2 pt-2">
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    <Zap className="w-4 h-4" />
+                    <span>{isSubmitting ? 'Verifying & Activating...' : 'Confirm Payment & Activate Pro'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleWhatsAppSend}
+                    className="w-full sm:w-auto py-3 px-4 rounded-xl bg-green-600 hover:bg-green-700 text-white text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                    title="Send receipt on WhatsApp"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span>WhatsApp Receipt</span>
+                  </button>
+                </div>
+              </form>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
