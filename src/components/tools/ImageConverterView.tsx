@@ -6,6 +6,7 @@ import {
   FileArchive,
   Trash2,
   AlertCircle,
+  Sparkles,
 } from 'lucide-react';
 import { DropZone } from '../DropZone';
 import { ProgressBar } from '../ProgressBar';
@@ -25,6 +26,7 @@ import {
 import { HistoryItem } from '../../types';
 import { checkLicense } from '../../utils/license';
 import { ProLimitModal } from '../ProLimitModal';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface ConvertedResultItem {
   id: string;
@@ -41,6 +43,15 @@ interface ImageConverterViewProps {
 }
 
 export const ImageConverterView: React.FC<ImageConverterViewProps> = ({ onAddToHistory }) => {
+  const {
+    user,
+    isTrialActive,
+    trialDaysLeft,
+    verifyAccessBeforeAction,
+    openLoginModal,
+    openUpgradeModal,
+    guestUsage,
+  } = useAuth();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
   const [targetFormat, setTargetFormat] = useState<TargetImageFormat>('webp');
@@ -136,6 +147,11 @@ export const ImageConverterView: React.FC<ImageConverterViewProps> = ({ onAddToH
 
   const handleConvert = async () => {
     if (selectedFiles.length === 0) return;
+
+    // Freemium check: 1 free guest conversion -> 7-day free trial -> Upgrade screen
+    const canProceed = await verifyAccessBeforeAction();
+    if (!canProceed) return;
+
     if (!checkLicense().isPro && selectedFiles.length > 3) {
       setShowProModal(true);
       return;
@@ -239,13 +255,38 @@ export const ImageConverterView: React.FC<ImageConverterViewProps> = ({ onAddToH
         </div>
       )}
 
-      <div>
-        <h2 className="text-xl font-bold text-stone-900 dark:text-stone-100">
-          Universal Image Converter
-        </h2>
-        <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-          Convert between PNG, JPG, WEBP, and HEIC instantly. Transparency is preserved where supported.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-stone-900 dark:text-stone-100">
+            Universal Image Converter
+          </h2>
+          <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
+            Convert between PNG, JPG, WEBP, and HEIC instantly. Transparency is preserved where supported.
+          </p>
+        </div>
+
+        {user ? (
+          isTrialActive && (
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-semibold self-start sm:self-auto">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Trial: {trialDaysLeft} {trialDaysLeft === 1 ? 'day' : 'days'} left</span>
+            </div>
+          )
+        ) : guestUsage === 0 ? (
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold self-start sm:self-auto">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>1 Free Guest Conversion</span>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => openUpgradeModal('guest_limit')}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-bold hover:bg-amber-500/25 transition-colors cursor-pointer self-start sm:self-auto animate-pulse"
+          >
+            <AlertCircle className="w-3.5 h-3.5" />
+            <span>Free Limit Reached · Start 7-Day Trial</span>
+          </button>
+        )}
       </div>
 
       {/* Quick Presets with active auto-highlighting */}
@@ -451,12 +492,18 @@ export const ImageConverterView: React.FC<ImageConverterViewProps> = ({ onAddToH
                 id="convert-images-execute-button"
                 onClick={handleConvert}
                 disabled={isProcessing || selectedFiles.length === 0}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 text-xs font-bold hover:opacity-90 transition-opacity disabled:opacity-50 shadow-sm"
+                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all disabled:opacity-50 shadow-sm cursor-pointer ${
+                  !user && guestUsage >= 1
+                    ? 'bg-amber-500 hover:bg-amber-600 text-white animate-pulse'
+                    : 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 hover:opacity-90'
+                }`}
               >
-                <RefreshCw className="w-4 h-4" />
+                <RefreshCw className={`w-4 h-4 ${isProcessing ? 'animate-spin' : ''}`} />
                 <span>
                   {isProcessing
                     ? 'Converting...'
+                    : !user && guestUsage >= 1
+                    ? 'Start Free Trial to Convert'
                     : `Convert ${selectedFiles.length} Images to ${targetFormat.toUpperCase()}`}
                 </span>
               </button>

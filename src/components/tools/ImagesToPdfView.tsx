@@ -17,6 +17,7 @@ import { convertImagesToPdf, ImagesToPdfOptions } from '../../utils/pdfOperation
 import { HistoryItem } from '../../types';
 import { checkLicense } from '../../utils/license';
 import { ProLimitModal } from '../ProLimitModal';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface ImageFileItem {
   id: string;
@@ -33,6 +34,14 @@ interface ImagesToPdfViewProps {
 }
 
 export const ImagesToPdfView: React.FC<ImagesToPdfViewProps> = ({ onAddToHistory }) => {
+  const {
+    user,
+    isTrialActive,
+    trialDaysLeft,
+    verifyAccessBeforeAction,
+    openUpgradeModal,
+    guestUsage,
+  } = useAuth();
   const [images, setImages] = useState<ImageFileItem[]>([]);
   const [outputName, setOutputName] = useState('images_collection.pdf');
   const [options, setOptions] = useState<ImagesToPdfOptions>({
@@ -98,6 +107,10 @@ export const ImagesToPdfView: React.FC<ImagesToPdfViewProps> = ({ onAddToHistory
 
   const handleConvert = async () => {
     if (images.length === 0) return;
+
+    const canProceed = await verifyAccessBeforeAction();
+    if (!canProceed) return;
+
     if (!checkLicense().isPro && images.length > 3) {
       setShowProModal(true);
       return;
@@ -145,13 +158,35 @@ export const ImagesToPdfView: React.FC<ImagesToPdfViewProps> = ({ onAddToHistory
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      <div>
-        <h2 className="text-xl font-bold text-stone-900 dark:text-stone-100">
-          Convert Images to PDF
-        </h2>
-        <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-          Combine JPG, PNG, and WEBP photos into a polished PDF with customizable page formats and margins.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-stone-900 dark:text-stone-100">
+            Convert Images to PDF
+          </h2>
+          <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
+            Combine JPG, PNG, and WEBP photos into a polished PDF with customizable page formats and margins.
+          </p>
+        </div>
+
+        {user ? (
+          isTrialActive && (
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-semibold self-start sm:self-auto">
+              <span>Trial: {trialDaysLeft} {trialDaysLeft === 1 ? 'day' : 'days'} left</span>
+            </div>
+          )
+        ) : guestUsage === 0 ? (
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold self-start sm:self-auto">
+            <span>1 Free Guest Conversion</span>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => openUpgradeModal('guest_limit')}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-bold hover:bg-amber-500/25 transition-colors cursor-pointer self-start sm:self-auto animate-pulse"
+          >
+            <span>Free Limit Reached · Start 7-Day Trial</span>
+          </button>
+        )}
       </div>
 
       <DropZone
@@ -332,10 +367,20 @@ export const ImagesToPdfView: React.FC<ImagesToPdfViewProps> = ({ onAddToHistory
                 id="convert-images-to-pdf-button"
                 onClick={handleConvert}
                 disabled={isProcessing || images.length === 0}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 text-xs font-bold hover:opacity-90 transition-opacity disabled:opacity-50 shadow-sm"
+                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all disabled:opacity-50 shadow-sm cursor-pointer ${
+                  !user && guestUsage >= 1
+                    ? 'bg-amber-500 hover:bg-amber-600 text-white animate-pulse'
+                    : 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 hover:opacity-90'
+                }`}
               >
                 <Layers className="w-4 h-4" />
-                <span>{isProcessing ? 'Generating PDF...' : `Generate PDF (${images.length} Pages)`}</span>
+                <span>
+                  {isProcessing
+                    ? 'Generating PDF...'
+                    : !user && guestUsage >= 1
+                    ? 'Start Free Trial to Generate PDF'
+                    : `Generate PDF (${images.length} Pages)`}
+                </span>
               </button>
             </div>
           </div>

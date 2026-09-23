@@ -19,7 +19,7 @@ import { HistoryView } from './components/tools/HistoryView';
 import { SettingsView } from './components/tools/SettingsView';
 import { checkForUpdate, UpdateInfo } from './utils/updater';
 import { UpdateModal } from './components/UpdateModal';
-import { AuthModal } from './components/AuthModal';
+import { useAuth } from './contexts/AuthContext';
 import {
   requestNotificationPermission,
   onMessageListener,
@@ -66,11 +66,11 @@ export default function App() {
     return DEFAULT_SETTINGS;
   });
 
+  const { openLoginModal } = useAuth();
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [autoUpdateInfo, setAutoUpdateInfo] = useState<UpdateInfo | null>(null);
   const [showAutoUpdateModal, setShowAutoUpdateModal] = useState(false);
   const [toastNotification, setToastNotification] = useState<AppNotification | null>(null);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   // Silently check for updates 3 seconds after application startup
   useEffect(() => {
@@ -194,7 +194,7 @@ export default function App() {
           theme={theme}
           onToggleTheme={toggleTheme}
           toolNames={TOOL_NAMES}
-          onOpenAuth={() => setIsAuthModalOpen(true)}
+          onOpenAuth={openLoginModal}
         />
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
@@ -233,7 +233,7 @@ export default function App() {
                   settings={settings}
                   onUpdateSettings={handleUpdateSettings}
                   onResetSettings={handleResetSettings}
-                  onOpenAuth={() => setIsAuthModalOpen(true)}
+                  onOpenAuth={openLoginModal}
                 />
               )}
             </motion.div>
@@ -246,12 +246,6 @@ export default function App() {
         isOpen={showAutoUpdateModal}
         updateInfo={autoUpdateInfo}
         onClose={() => setShowAutoUpdateModal(false)}
-      />
-
-      {/* Firebase Authentication Modal */}
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
       />
 
       {/* Floating In-App Notification Toast */}

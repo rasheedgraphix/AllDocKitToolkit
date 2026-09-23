@@ -17,6 +17,7 @@ import { mergePdfFiles } from '../../utils/pdfOperations';
 import { HistoryItem } from '../../types';
 import { checkLicense } from '../../utils/license';
 import { ProLimitModal } from '../ProLimitModal';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface PdfFileItem {
   id: string;
@@ -31,6 +32,15 @@ interface PdfMergerViewProps {
 }
 
 export const PdfMergerView: React.FC<PdfMergerViewProps> = ({ onAddToHistory }) => {
+  const {
+    user,
+    isPro,
+    isTrialActive,
+    trialDaysLeft,
+    verifyAccessBeforeAction,
+    openUpgradeModal,
+    guestUsage,
+  } = useAuth();
   const [files, setFiles] = useState<PdfFileItem[]>([]);
   const [outputName, setOutputName] = useState('merged_document.pdf');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -89,6 +99,10 @@ export const PdfMergerView: React.FC<PdfMergerViewProps> = ({ onAddToHistory }) 
 
   const handleMerge = async () => {
     if (files.length === 0) return;
+
+    const canProceed = await verifyAccessBeforeAction();
+    if (!canProceed) return;
+
     if (!checkLicense().isPro && files.length > 3) {
       setShowProModal(true);
       return;
@@ -137,13 +151,35 @@ export const PdfMergerView: React.FC<PdfMergerViewProps> = ({ onAddToHistory }) 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Description header */}
-      <div>
-        <h2 className="text-xl font-bold text-stone-900 dark:text-stone-100">
-          Merge PDF Documents
-        </h2>
-        <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-          Combine multiple PDF files into a single unified document with custom page order.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-stone-900 dark:text-stone-100">
+            Merge PDF Documents
+          </h2>
+          <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
+            Combine multiple PDF files into a single unified document with custom page order.
+          </p>
+        </div>
+
+        {user ? (
+          isTrialActive && (
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-semibold self-start sm:self-auto">
+              <span>Trial: {trialDaysLeft} {trialDaysLeft === 1 ? 'day' : 'days'} left</span>
+            </div>
+          )
+        ) : guestUsage === 0 ? (
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold self-start sm:self-auto">
+            <span>1 Free Guest Conversion</span>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => openUpgradeModal('guest_limit')}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-bold hover:bg-amber-500/25 transition-colors cursor-pointer self-start sm:self-auto animate-pulse"
+          >
+            <span>Free Limit Reached · Start 7-Day Trial</span>
+          </button>
+        )}
       </div>
 
       {/* Drop Zone */}
@@ -240,10 +276,20 @@ export const PdfMergerView: React.FC<PdfMergerViewProps> = ({ onAddToHistory }) 
                 id="merge-action-button"
                 onClick={handleMerge}
                 disabled={isProcessing || files.length === 0}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 text-xs font-bold hover:opacity-90 transition-opacity disabled:opacity-50 shadow-sm"
+                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all disabled:opacity-50 shadow-sm cursor-pointer ${
+                  !user && guestUsage >= 1
+                    ? 'bg-amber-500 hover:bg-amber-600 text-white animate-pulse'
+                    : 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 hover:opacity-90'
+                }`}
               >
                 <Layers className="w-4 h-4" />
-                <span>{isProcessing ? 'Merging...' : `Merge ${files.length} PDFs`}</span>
+                <span>
+                  {isProcessing
+                    ? 'Merging...'
+                    : !user && guestUsage >= 1
+                    ? 'Start Free Trial to Merge'
+                    : `Merge ${files.length} PDFs`}
+                </span>
               </button>
             </div>
           </div>

@@ -10,7 +10,10 @@
         "displayName": { "type": "string" },
         "photoURL": { "type": "string" },
         "createdAt": { "type": "string" },
-        "lastLoginAt": { "type": "string" }
+        "lastLoginAt": { "type": "string" },
+        "trialStart": { "type": "string" },
+        "subscription": { "type": "string" },
+        "plan": { "type": "string" }
       },
       "required": ["id", "email"]
     }

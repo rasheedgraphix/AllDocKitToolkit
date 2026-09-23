@@ -26,6 +26,7 @@ import {
 import { HistoryItem } from '../../types';
 import { checkLicense } from '../../utils/license';
 import { ProLimitModal } from '../ProLimitModal';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface ResizedResultItem {
   id: string;
@@ -43,6 +44,14 @@ interface ImageResizerViewProps {
 }
 
 export const ImageResizerView: React.FC<ImageResizerViewProps> = ({ onAddToHistory }) => {
+  const {
+    user,
+    isTrialActive,
+    trialDaysLeft,
+    verifyAccessBeforeAction,
+    openUpgradeModal,
+    guestUsage,
+  } = useAuth();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [fileDetails, setFileDetails] = useState<
     { file: File; width: number; height: number; thumbUrl: string }[]
@@ -105,6 +114,10 @@ export const ImageResizerView: React.FC<ImageResizerViewProps> = ({ onAddToHisto
 
   const handleProcess = async () => {
     if (selectedFiles.length === 0) return;
+
+    const canProceed = await verifyAccessBeforeAction();
+    if (!canProceed) return;
+
     if (!checkLicense().isPro && selectedFiles.length > 3) {
       setShowProModal(true);
       return;
@@ -181,13 +194,35 @@ export const ImageResizerView: React.FC<ImageResizerViewProps> = ({ onAddToHisto
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      <div>
-        <h2 className="text-xl font-bold text-stone-900 dark:text-stone-100">
-          Image Compressor & Resizer
-        </h2>
-        <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-          Reduce image payload by up to 80-90% without visible loss of sharpness. Scale dimensions effortlessly.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-stone-900 dark:text-stone-100">
+            Image Compressor & Resizer
+          </h2>
+          <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
+            Reduce image payload by up to 80-90% without visible loss of sharpness. Scale dimensions effortlessly.
+          </p>
+        </div>
+
+        {user ? (
+          isTrialActive && (
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-semibold self-start sm:self-auto">
+              <span>Trial: {trialDaysLeft} {trialDaysLeft === 1 ? 'day' : 'days'} left</span>
+            </div>
+          )
+        ) : guestUsage === 0 ? (
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold self-start sm:self-auto">
+            <span>1 Free Guest Conversion</span>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => openUpgradeModal('guest_limit')}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-bold hover:bg-amber-500/25 transition-colors cursor-pointer self-start sm:self-auto animate-pulse"
+          >
+            <span>Free Limit Reached · Start 7-Day Trial</span>
+          </button>
+        )}
       </div>
 
       {/* Preset Compression Targets */}
@@ -384,12 +419,18 @@ export const ImageResizerView: React.FC<ImageResizerViewProps> = ({ onAddToHisto
                 id="execute-resize-compress-button"
                 onClick={handleProcess}
                 disabled={isProcessing || selectedFiles.length === 0}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 text-xs font-bold hover:opacity-90 transition-opacity disabled:opacity-50 shadow-sm"
+                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all disabled:opacity-50 shadow-sm cursor-pointer ${
+                  !user && guestUsage >= 1
+                    ? 'bg-amber-500 hover:bg-amber-600 text-white animate-pulse'
+                    : 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 hover:opacity-90'
+                }`}
               >
                 <Maximize2 className="w-4 h-4" />
                 <span>
                   {isProcessing
                     ? 'Compressing...'
+                    : !user && guestUsage >= 1
+                    ? 'Start Free Trial to Resize'
                     : `Compress & Resize ${selectedFiles.length} Images`}
                 </span>
               </button>
