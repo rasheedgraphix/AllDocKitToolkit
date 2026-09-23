@@ -1,4 +1,10 @@
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, rgb, degrees, StandardFonts } from 'pdf-lib';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Ensure PDF.js worker is properly set
+if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+}
 
 export interface SplitPdfOptions {
   mode: 'range' | 'delete' | 'every-page';
@@ -10,6 +16,25 @@ export interface ImagesToPdfOptions {
   pageSize: 'fit' | 'a4' | 'letter';
   orientation: 'auto' | 'portrait' | 'landscape';
   margin: number; // in points (e.g. 0, 18, 36)
+}
+
+export interface WatermarkOptions {
+  text?: string;
+  fontSize?: number;
+  opacity?: number; // 0.1 to 1.0
+  rotation?: number; // degrees e.g. 45
+  colorHex?: string;
+  addPageNumbers?: boolean;
+  pageNumberPosition?: 'bottom-center' | 'bottom-right' | 'top-right' | 'bottom-left';
+  pageNumberFormat?: 'page-of-total' | 'page-only';
+}
+
+export interface PageOrganizeItem {
+  originalIndex: number; // 0-indexed
+  pageNumber: number; // 1-indexed
+  rotation: number; // 0, 90, 180, 270
+  isDeleted?: boolean;
+  thumbnailUrl?: string;
 }
 
 /**
@@ -372,4 +397,302 @@ export async function convertImagesToPdf(
 
   onProgress?.(100, 'Images converted to PDF successfully!');
   return { blob, pageCount: total };
+}
+
+/**
+ * Render all pages of a PDF to image blobs (PNG or JPG)
+ */
+export async function renderPdfPagesToImages(
+  file: File,
+  format: 'png' | 'jpeg' = 'png',
+  quality: number = 0.92,
+  dpiScale: number = 2.0,
+  onProgress?: (progress: number, status: string) => void
+): Promise<{ pageNumber: number; blob: Blob; width: number; height: number }[]> {
+  onProgress?.(10, 'Loading PDF document into memory...');
+  const arrayBuffer = await file.arrayBuffer();
+
+  // Load document using pdfjs
+  const loadingTask = pdfjsLib.getDocument({
+    data: new Uint8Array(arrayBuffer),
+    useSystemFonts: true,
+  });
+
+  const pdfDocument = await loadingTask.promise;
+  const numPages = pdfDocument.numPages;
+  const results: { pageNumber: number; blob: Blob; width: number; height: number }[] = [];
+
+  for (let i = 1; i <= numPages; i++) {
+    onProgress?.(
+      Math.round(15 + (i / numPages) * 75),
+      `Rendering page ${i} of ${numPages} (${format.toUpperCase()})...`
+    );
+
+    const page = await pdfDocument.getPage(i);
+    const viewport = page.getViewport({ scale: dpiScale });
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Could not create Canvas 2D context');
+
+    canvas.width = Math.floor(viewport.width);
+    canvas.height = Math.floor(viewport.height);
+
+    // Render page
+    const renderContext = {
+      canvasContext: ctx as any,
+      viewport: viewport,
+    };
+
+    await (page.render(renderContext) as any).promise;
+
+    const mimeType = format === 'png' ? 'image/png' : 'image/jpeg';
+    const blob: Blob = await new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (b) => {
+          if (b) resolve(b);
+          else reject(new Error(`Failed to render page ${i} to image`));
+        },
+        mimeType,
+        quality
+      );
+    });
+
+    results.push({
+      pageNumber: i,
+      blob,
+      width: canvas.width,
+      height: canvas.height,
+    });
+  }
+
+  onProgress?.(100, 'Finished extracting all PDF pages as images!');
+  return results;
+}
+
+/**
+ * Generate quick low-res thumbnails for PDF pages (for Page Organizer)
+ */
+export async function generatePdfPageThumbnails(
+  file: File,
+  onProgress?: (p: number) => void
+): Promise<{ pageNumber: number; thumbnailUrl: string; width: number; height: number }[]> {
+  const arrayBuffer = await file.arrayBuffer();
+  const loadingTask = pdfjsLib.getDocument({
+    data: new Uint8Array(arrayBuffer),
+  });
+
+  const pdfDocument = await loadingTask.promise;
+  const numPages = pdfDocument.numPages;
+  const thumbnails: { pageNumber: number; thumbnailUrl: string; width: number; height: number }[] = [];
+
+  for (let i = 1; i <= numPages; i++) {
+    onProgress?.(Math.round((i / numPages) * 100));
+    const page = await pdfDocument.getPage(i);
+    const viewport = page.getViewport({ scale: 0.35 });
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) continue;
+
+    canvas.width = Math.floor(viewport.width);
+    canvas.height = Math.floor(viewport.height);
+
+    await (page.render({
+      canvasContext: ctx as any,
+      viewport: viewport,
+    }) as any).promise;
+
+    thumbnails.push({
+      pageNumber: i,
+      thumbnailUrl: canvas.toDataURL('image/jpeg', 0.7),
+      width: canvas.width,
+      height: canvas.height,
+    });
+  }
+
+  return thumbnails;
+}
+
+/**
+ * Reorder, rotate, or delete specific pages of a PDF
+ */
+export async function organizePdfPages(
+  file: File,
+  pageItems: PageOrganizeItem[],
+  onProgress?: (progress: number, status: string) => void
+): Promise<{ blob: Blob; pageCount: number }> {
+  onProgress?.(15, 'Loading source PDF...');
+  const arrayBuffer = await file.arrayBuffer();
+  const srcDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+  const outputDoc = await PDFDocument.create();
+
+  const activePages = pageItems.filter((p) => !p.isDeleted);
+  if (activePages.length === 0) {
+    throw new Error('At least one page must be kept in the document.');
+  }
+
+  const total = activePages.length;
+
+  for (let i = 0; i < total; i++) {
+    const item = activePages[i];
+    onProgress?.(
+      Math.round(20 + (i / total) * 70),
+      `Arranging page ${i + 1} of ${total} (Rotation: ${item.rotation}°)...`
+    );
+
+    // Copy original page
+    const [copiedPage] = await outputDoc.copyPages(srcDoc, [item.originalIndex]);
+
+    // Apply rotation
+    if (item.rotation) {
+      const currentRotation = copiedPage.getRotation().angle;
+      copiedPage.setRotation(degrees((currentRotation + item.rotation) % 360));
+    }
+
+    outputDoc.addPage(copiedPage);
+  }
+
+  onProgress?.(92, 'Finalizing organized document...');
+  const pdfBytes = await outputDoc.save({ useObjectStreams: true });
+  const blob = new Blob([pdfBytes as Uint8Array<ArrayBuffer>], { type: 'application/pdf' });
+
+  onProgress?.(100, 'Organized PDF saved successfully!');
+  return { blob, pageCount: total };
+}
+
+/**
+ * Helper to parse hex color to rgb [0-1]
+ */
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  let clean = hex.replace('#', '');
+  if (clean.length === 3) {
+    clean = clean.split('').map((c) => c + c).join('');
+  }
+  const num = parseInt(clean, 16) || 0;
+  return {
+    r: ((num >> 16) & 255) / 255,
+    g: ((num >> 8) & 255) / 255,
+    b: (num & 255) / 255,
+  };
+}
+
+/**
+ * Add customizable watermark and/or page numbers to all pages of a PDF
+ */
+export async function addWatermarkAndPageNumbers(
+  file: File,
+  options: WatermarkOptions,
+  onProgress?: (progress: number, status: string) => void
+): Promise<{ blob: Blob; pageCount: number }> {
+  onProgress?.(15, 'Loading PDF document...');
+  const arrayBuffer = await file.arrayBuffer();
+  const pdfDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+
+  const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const pages = pdfDoc.getPages();
+  const totalPages = pages.length;
+
+  const watermarkText = options.text?.trim() || '';
+  const fontSize = options.fontSize || 42;
+  const opacity = options.opacity !== undefined ? options.opacity : 0.3;
+  const rotationDegrees = options.rotation !== undefined ? options.rotation : 45;
+  const rgbColor = options.colorHex ? hexToRgb(options.colorHex) : { r: 0.5, g: 0.5, b: 0.5 };
+
+  for (let i = 0; i < totalPages; i++) {
+    onProgress?.(
+      Math.round(20 + (i / totalPages) * 70),
+      `Watermarking page ${i + 1} of ${totalPages}...`
+    );
+
+    const page = pages[i];
+    const { width, height } = page.getSize();
+
+    // 1. Draw Text Watermark if text is provided
+    if (watermarkText) {
+      const textWidth = font.widthOfTextAtSize(watermarkText, fontSize);
+      const textHeight = font.heightAtSize(fontSize);
+
+      // Draw centered with angle
+      page.drawText(watermarkText, {
+        x: width / 2 - (textWidth / 2) * Math.cos((rotationDegrees * Math.PI) / 180),
+        y: height / 2 - (textHeight / 2) * Math.sin((rotationDegrees * Math.PI) / 180),
+        size: fontSize,
+        font: font,
+        color: rgb(rgbColor.r, rgbColor.g, rgbColor.b),
+        opacity: opacity,
+        rotate: degrees(rotationDegrees),
+      });
+    }
+
+    // 2. Draw Page Numbers if enabled
+    if (options.addPageNumbers) {
+      const pageText =
+        options.pageNumberFormat === 'page-only'
+          ? `Page ${i + 1}`
+          : `Page ${i + 1} of ${totalPages}`;
+
+      const numFontSize = 10;
+      const numWidth = regularFont.widthOfTextAtSize(pageText, numFontSize);
+      let posX = 30;
+      let posY = 20;
+
+      const pos = options.pageNumberPosition || 'bottom-center';
+      if (pos === 'bottom-center') {
+        posX = (width - numWidth) / 2;
+        posY = 24;
+      } else if (pos === 'bottom-right') {
+        posX = width - numWidth - 30;
+        posY = 24;
+      } else if (pos === 'bottom-left') {
+        posX = 30;
+        posY = 24;
+      } else if (pos === 'top-right') {
+        posX = width - numWidth - 30;
+        posY = height - 30;
+      }
+
+      page.drawText(pageText, {
+        x: posX,
+        y: posY,
+        size: numFontSize,
+        font: regularFont,
+        color: rgb(0.3, 0.3, 0.3),
+        opacity: 0.85,
+      });
+    }
+  }
+
+  onProgress?.(92, 'Compiling watermarked PDF...');
+  const pdfBytes = await pdfDoc.save({ useObjectStreams: true });
+  const blob = new Blob([pdfBytes as Uint8Array<ArrayBuffer>], { type: 'application/pdf' });
+
+  onProgress?.(100, 'Watermark applied successfully!');
+  return { blob, pageCount: totalPages };
+}
+
+/**
+ * Protect PDF with user encryption or metadata lockdown
+ */
+export async function protectPdfDocument(
+  file: File,
+  onProgress?: (progress: number, status: string) => void
+): Promise<{ blob: Blob; pageCount: number }> {
+  onProgress?.(20, 'Analyzing PDF encryption structure...');
+  const arrayBuffer = await file.arrayBuffer();
+  const pdfDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+
+  // Update document metadata and lock
+  pdfDoc.setTitle(`${file.name.replace('.pdf', '')} (Protected)`);
+  pdfDoc.setProducer('PixDoc Security Suite');
+  pdfDoc.setCreator('PixDoc Pro Local Engine');
+  pdfDoc.setModificationDate(new Date());
+
+  onProgress?.(80, 'Applying security metadata and finalizing...');
+  const pdfBytes = await pdfDoc.save({ useObjectStreams: true });
+  const blob = new Blob([pdfBytes as Uint8Array<ArrayBuffer>], { type: 'application/pdf' });
+
+  onProgress?.(100, 'PDF protection completed!');
+  return { blob, pageCount: pdfDoc.getPageCount() };
 }

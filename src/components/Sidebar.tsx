@@ -10,6 +10,10 @@ import {
   Settings,
   Shield,
   Layers,
+  Stamp,
+  Lock,
+  QrCode,
+  Sparkles,
 } from 'lucide-react';
 import { ToolId } from '../types';
 import { PixDocLogo } from './PixDocLogo';
@@ -43,14 +47,41 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, []);
 
   const isPro = license.isPro;
+
   const pdfTools: NavItem[] = [
     { id: 'pdf-merger', label: 'PDF Merger', icon: Files },
     { id: 'pdf-splitter', label: 'PDF Splitter', icon: Scissors },
+    {
+      id: 'pdf-organizer',
+      label: 'Organize & Rotate',
+      icon: Layers,
+      badge: 'NEW',
+      badgeColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
+    },
+    {
+      id: 'pdf-to-images',
+      label: 'PDF to Images',
+      icon: FileImage,
+      badge: 'HD',
+      badgeColor: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300',
+    },
+    {
+      id: 'pdf-watermark',
+      label: 'Watermark & Numbers',
+      icon: Stamp,
+      badge: 'NEW',
+      badgeColor: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
+    },
     { id: 'pdf-compressor', label: 'PDF Compressor', icon: Minimize2 },
-    { id: 'images-to-pdf', label: 'Images to PDF', icon: FileImage },
+    {
+      id: 'pdf-protect',
+      label: 'Security & Lock',
+      icon: Lock,
+    },
   ];
 
   const imageTools: NavItem[] = [
+    { id: 'images-to-pdf', label: 'Images to PDF', icon: FileImage },
     {
       id: 'image-converter',
       label: 'Image Converter',
@@ -65,6 +96,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badge: '-90%',
       badgeColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
     },
+    {
+      id: 'qr-studio',
+      label: 'QR Code Studio',
+      icon: QrCode,
+      badge: 'PRO',
+      badgeColor: 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300',
+    },
   ];
 
   const systemTools: NavItem[] = [
@@ -78,7 +116,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'settings',
       label: 'Settings',
       icon: Settings,
-      badge: license.isTrial ? 'TRIAL' : isPro ? 'PRO' : 'UPGRADE',
+      badge: license.isTrial ? 'TRIAL' : isPro ? 'PRO' : 'FREE',
       badgeColor: isPro
         ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
         : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
@@ -90,15 +128,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id="app-sidebar"
       className="w-64 border-r flex flex-col justify-between transition-colors bg-stone-50/70 dark:bg-stone-950/70 border-stone-200 dark:border-stone-800 select-none shrink-0"
     >
-      <div className="p-4 space-y-6 overflow-y-auto">
+      <div className="p-4 space-y-5 overflow-y-auto">
         {/* Brand */}
         <div className="flex items-center gap-2.5 px-2 py-1">
           <PixDocLogo size={36} />
           <div>
             <h2 className="text-sm font-bold tracking-tight text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
               <span>PixDoc</span>
-              <span className="text-[9px] px-1 py-0.5 rounded font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-                PRO
+              <span className="text-[9px] px-1 py-0.5 rounded font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                100% FREE
               </span>
             </h2>
             <p className="text-[11px] text-stone-500 dark:text-stone-400">
@@ -110,7 +148,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* PDF Tools Section */}
         <div className="space-y-1">
           <p className="px-3 text-[11px] font-semibold tracking-wider text-stone-400 dark:text-stone-500 uppercase">
-            PDF Tools
+            PDF Suite
           </p>
           {pdfTools.map((tool) => {
             const Icon = tool.icon;
@@ -130,6 +168,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <Icon className="w-4 h-4 shrink-0" />
                   <span>{tool.label}</span>
                 </div>
+                {tool.badge && (
+                  <span
+                    className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${
+                      isActive
+                        ? 'bg-white/20 text-white dark:bg-stone-900/20 dark:text-stone-900'
+                        : tool.badgeColor || 'bg-stone-200 text-stone-700 dark:bg-stone-800 dark:text-stone-300'
+                    }`}
+                  >
+                    {tool.badge}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -138,7 +187,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Image Tools Section */}
         <div className="space-y-1">
           <p className="px-3 text-[11px] font-semibold tracking-wider text-stone-400 dark:text-stone-500 uppercase">
-            Image Tools
+            Image & Utilities
           </p>
           {imageTools.map((tool) => {
             const Icon = tool.icon;
@@ -160,7 +209,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
                 {tool.badge && (
                   <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
+                    className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${
                       isActive
                         ? 'bg-white/20 text-white dark:bg-stone-900/20 dark:text-stone-900'
                         : tool.badgeColor || 'bg-stone-200 text-stone-700 dark:bg-stone-800 dark:text-stone-300'
@@ -177,7 +226,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* System & History */}
         <div className="space-y-1">
           <p className="px-3 text-[11px] font-semibold tracking-wider text-stone-400 dark:text-stone-500 uppercase">
-            Utilities
+            Workspace
           </p>
           {systemTools.map((tool) => {
             const Icon = tool.icon;
@@ -199,7 +248,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
                 {tool.badge && (
                   <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                    className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${
                       isActive
                         ? 'bg-white/20 text-white dark:bg-stone-900/20 dark:text-stone-900'
                         : 'bg-stone-200 text-stone-700 dark:bg-stone-800 dark:text-stone-300'
@@ -220,9 +269,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <Shield className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
           <div className="text-[11px] leading-tight text-stone-600 dark:text-stone-400">
             <span className="font-semibold text-stone-900 dark:text-stone-200 block mb-0.5">
-              PixDoc - Offline & Private
+              PixDoc - 100% Free & Local
             </span>
-            All processing runs 100% on your local machine.
+            Zero upload fees. All file processing runs right in your browser.
           </div>
         </div>
       </div>

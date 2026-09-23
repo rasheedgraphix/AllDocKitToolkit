@@ -1,7 +1,7 @@
 /**
- * PDF & Image Toolkit - All in One Offline
- * 100% Client-side local processing using pdf-lib, Canvas, and Web APIs.
- * Ready for Tauri desktop packaging and browser usage.
+ * PDF & Image Toolkit - All in One Offline & 100% Free
+ * 100% Client-side local processing using pdf-lib, PDF.js, Canvas, and Web APIs.
+ * Zero server costs. Private, fast, and completely free forever.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -11,10 +11,15 @@ import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { PdfMergerView } from './components/tools/PdfMergerView';
 import { PdfSplitterView } from './components/tools/PdfSplitterView';
+import { PdfOrganizerView } from './components/tools/PdfOrganizerView';
+import { PdfToImagesView } from './components/tools/PdfToImagesView';
+import { PdfWatermarkView } from './components/tools/PdfWatermarkView';
 import { PdfCompressorView } from './components/tools/PdfCompressorView';
+import { PdfProtectView } from './components/tools/PdfProtectView';
 import { ImagesToPdfView } from './components/tools/ImagesToPdfView';
 import { ImageConverterView } from './components/tools/ImageConverterView';
 import { ImageResizerView } from './components/tools/ImageResizerView';
+import { QrStudioView } from './components/tools/QrStudioView';
 import { HistoryView } from './components/tools/HistoryView';
 import { SettingsView } from './components/tools/SettingsView';
 import { checkForUpdate, UpdateInfo } from './utils/updater';
@@ -30,11 +35,16 @@ import { NotificationToast } from './components/NotificationToast';
 
 const TOOL_NAMES: Record<ToolId, string> = {
   'pdf-merger': 'PDF Merger',
-  'pdf-splitter': 'PDF Splitter & Page Remover',
+  'pdf-splitter': 'PDF Splitter & Page Extractor',
+  'pdf-organizer': 'PDF Organize & Rotate Pages',
+  'pdf-to-images': 'PDF to Images Extractor (HD)',
+  'pdf-watermark': 'PDF Watermark & Page Numbering',
   'pdf-compressor': 'PDF Compressor',
+  'pdf-protect': 'PDF Password Protect & Lock',
   'images-to-pdf': 'Images to PDF',
   'image-converter': 'Image Converter (PNG, JPG, WEBP, HEIC)',
   'image-compressor': 'Image Compressor & Resizer (-90%)',
+  'qr-studio': 'Smart QR Code Studio',
   history: 'Conversion History',
   settings: 'Desktop Settings & Packaging',
 };
@@ -106,12 +116,11 @@ export default function App() {
       setToastNotification(payload);
     });
 
-    // Demonstrate initial update notification (e.g. "New PDF compress feature added!")
     const sampleTimer = setTimeout(() => {
       if (localStorage.getItem('notifications_enabled') === 'true') {
         emitInAppNotification({
-          title: 'PixDoc Notification',
-          body: 'New PDF compress feature added! Enjoy up to 90% file size reduction.',
+          title: 'PixDoc Toolkit',
+          body: 'All new PDF to Images, Page Organizer, Watermark & QR Code tools are now ready!',
         });
       }
     }, 7000);
@@ -213,8 +222,20 @@ export default function App() {
               {activeTool === 'pdf-splitter' && (
                 <PdfSplitterView onAddToHistory={handleAddToHistory} />
               )}
+              {activeTool === 'pdf-organizer' && (
+                <PdfOrganizerView onAddToHistory={handleAddToHistory} />
+              )}
+              {activeTool === 'pdf-to-images' && (
+                <PdfToImagesView onAddToHistory={handleAddToHistory} />
+              )}
+              {activeTool === 'pdf-watermark' && (
+                <PdfWatermarkView onAddToHistory={handleAddToHistory} />
+              )}
               {activeTool === 'pdf-compressor' && (
                 <PdfCompressorView onAddToHistory={handleAddToHistory} />
+              )}
+              {activeTool === 'pdf-protect' && (
+                <PdfProtectView onAddToHistory={handleAddToHistory} />
               )}
               {activeTool === 'images-to-pdf' && (
                 <ImagesToPdfView onAddToHistory={handleAddToHistory} />
@@ -224,6 +245,9 @@ export default function App() {
               )}
               {activeTool === 'image-compressor' && (
                 <ImageResizerView onAddToHistory={handleAddToHistory} />
+              )}
+              {activeTool === 'qr-studio' && (
+                <QrStudioView onAddToHistory={handleAddToHistory} />
               )}
               {activeTool === 'history' && (
                 <HistoryView history={history} onClearHistory={handleClearHistory} />

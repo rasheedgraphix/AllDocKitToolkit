@@ -1,14 +1,19 @@
 export type ToolId =
   | 'pdf-merger'
   | 'pdf-splitter'
+  | 'pdf-organizer'
+  | 'pdf-to-images'
+  | 'pdf-watermark'
   | 'pdf-compressor'
+  | 'pdf-protect'
   | 'images-to-pdf'
   | 'image-converter'
   | 'image-compressor'
+  | 'qr-studio'
   | 'history'
   | 'settings';
 
-export type ToolCategory = 'pdf' | 'image' | 'system';
+export type ToolCategory = 'pdf' | 'image' | 'utility' | 'system';
 
 export interface ToolMeta {
   id: ToolId;
