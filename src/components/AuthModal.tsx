@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, Mail, Lock, User as UserIcon, LogIn, AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react';
+import { X, Mail, Lock, User as UserIcon, LogIn, AlertCircle, CheckCircle2, ArrowRight, ExternalLink } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { getFriendlyAuthErrorMessage } from '../lib/firebase';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -38,7 +39,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         setSuccessMessage('Password reset instructions sent to your email.');
       }
     } catch (err: any) {
-      setError(err.message || 'Authentication error.');
+      setError(getFriendlyAuthErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -51,7 +52,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       await signInWithGoogle();
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Google sign-in error.');
+      setError(getFriendlyAuthErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -64,7 +65,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       await signOut();
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Error signing out.');
+      setError(getFriendlyAuthErrorMessage(err));
     } finally {
       setLoading(false);
     }

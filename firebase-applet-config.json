@@ -1,12 +1,12 @@
 {
-  "projectId": "spheric-iris-k98sv",
-  "appId": "1:810777122826:web:72111b310f58f7f12367f3",
-  "apiKey": "AIzaSyCVeJsJWQKqQjYrRwFg0cK-aGjC1dy1TDY",
-  "authDomain": "spheric-iris-k98sv.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-pixdoc-510385a5-1505-4f6b-a31f-5600e681037a",
-  "storageBucket": "spheric-iris-k98sv.firebasestorage.app",
-  "messagingSenderId": "810777122826",
-  "measurementId": "",
-  "oAuthClientId": "810777122826-5i8vkvj1jub1p2ajat768l7h7p4e312i.apps.googleusercontent.com",
+  "projectId": "pixdoc-e0282",
+  "appId": "1:201805765652:web:5837d0af783021fd49db01",
+  "apiKey": "AIzaSyDzlvAOoql_L5hwAfvSOM2uHa0EzSPazeA",
+  "authDomain": "pixdoc-e0282.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "pixdoc-e0282.firebasestorage.app",
+  "messagingSenderId": "201805765652",
+  "measurementId": "G-LTR6RKE695",
+  "oAuthClientId": "",
   "recaptchaSiteKey": ""
 }

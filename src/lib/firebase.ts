@@ -36,11 +36,13 @@ export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getA
 // Initialize Auth
 export const auth = getAuth(app);
 
-// Initialize Firestore with database ID
-export const db = getFirestore(
-  app,
-  firebaseConfigJson.firestoreDatabaseId || '(default)'
-);
+// Initialize Firestore with database ID safely
+export const db =
+  firebaseConfigJson.firestoreDatabaseId &&
+  firebaseConfigJson.firestoreDatabaseId !== '(default)' &&
+  firebaseConfigJson.firestoreDatabaseId !== ''
+    ? getFirestore(app, firebaseConfigJson.firestoreDatabaseId)
+    : getFirestore(app);
 
 // Google Auth Provider
 export const googleProvider = new GoogleAuthProvider();
@@ -222,6 +224,10 @@ export function getFriendlyAuthErrorMessage(error: unknown): string {
       return 'An account already exists with this email address.';
     case 'auth/weak-password':
       return 'Password should be at least 6 characters long.';
+    case 'auth/unauthorized-domain': {
+      const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'this domain';
+      return `Domain "${currentHost}" is not authorized in Firebase Console. Please add "${currentHost}" (or your domain) to Firebase Authentication > Settings > Authorized domains.`;
+    }
     case 'auth/popup-closed-by-user':
       return 'Sign-in popup was closed before completing.';
     case 'auth/cancelled-popup-request':
