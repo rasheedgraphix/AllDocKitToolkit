@@ -38,9 +38,11 @@ interface BookOcrConverterViewProps {
 }
 
 const SUPPORTED_LANGUAGES = [
-  { code: 'eng', name: 'English (Default)' },
+  { code: 'auto', name: '✨ Auto-Detect Language (خودکار شناخت)' },
+  { code: 'urd+ara', name: 'Urdu + Arabic (اردو اور عربی کتابیں - Recommended)' },
   { code: 'urd', name: 'Urdu (اردو)' },
   { code: 'ara', name: 'Arabic (العربية)' },
+  { code: 'eng', name: 'English (Default)' },
   { code: 'hin', name: 'Hindi (हिन्दी)' },
   { code: 'spa', name: 'Spanish (Español)' },
   { code: 'fra', name: 'French (Français)' },
@@ -61,8 +63,8 @@ export const BookOcrConverterView: React.FC<BookOcrConverterViewProps> = ({ onAd
   const [isPdf, setIsPdf] = useState(false);
   const [pageRange, setPageRange] = useState<string>('1-5');
 
-  // OCR Settings
-  const [language, setLanguage] = useState('eng');
+  // OCR Settings - Defaults to 'auto'
+  const [language, setLanguage] = useState('auto');
   const [enablePreprocessing, setEnablePreprocessing] = useState(true);
   const [binarize, setBinarize] = useState(false);
   const [contrastBoost, setContrastBoost] = useState(35);
@@ -96,6 +98,11 @@ export const BookOcrConverterView: React.FC<BookOcrConverterViewProps> = ({ onAd
     setExtractedText('');
 
     const fileNameLower = file.name.toLowerCase();
+    const hasArabicOrUrdu = /[\u0600-\u06FF]/.test(file.name) || /urdu|arabic|sharh|kitab|insha|quran|hadith/i.test(file.name);
+    if (hasArabicOrUrdu) {
+      setLanguage('urd+ara');
+    }
+
     if (file.type === 'application/pdf' || fileNameLower.endsWith('.pdf')) {
       setIsPdf(true);
       try {
@@ -126,6 +133,14 @@ export const BookOcrConverterView: React.FC<BookOcrConverterViewProps> = ({ onAd
     setStatusText('Initializing AI OCR Engine & Language Models...');
 
     try {
+      // Determine effective language for auto-detection
+      let effectiveLang = language;
+      if (language === 'auto') {
+        const fileNameLower = selectedFile.name.toLowerCase();
+        const hasArabicOrUrdu = /[\u0600-\u06FF]/.test(selectedFile.name) || /urdu|arabic|sharh|kitab|insha|quran|hadith|islami|dars/i.test(fileNameLower);
+        effectiveLang = hasArabicOrUrdu ? 'urd+ara' : 'eng';
+      }
+
       // Robust Tesseract Worker Initialization
       let worker: any = null;
       const workerOptions = {
@@ -144,11 +159,11 @@ export const BookOcrConverterView: React.FC<BookOcrConverterViewProps> = ({ onAd
       };
 
       try {
-        worker = await createWorker(language, 1, workerOptions);
+        worker = await createWorker(effectiveLang, 1, workerOptions);
       } catch (workerErr) {
         console.warn('Fallback to standard worker initialization:', workerErr);
         try {
-          worker = await createWorker(language);
+          worker = await createWorker(effectiveLang);
         } catch {
           worker = await createWorker('eng');
         }
@@ -655,8 +670,10 @@ export const BookOcrConverterView: React.FC<BookOcrConverterViewProps> = ({ onAd
                       ? "Analyzing image and extracting book text..."
                       : "Click 'Start OCR Extraction' to extract editable text from your document, or type/paste text here..."
                   }
-                  dir={language === 'urd' || language === 'ara' ? 'rtl' : 'ltr'}
-                  className="w-full h-80 sm:h-96 p-4 rounded-xl bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 text-sm font-sans resize-none focus:outline-none focus:ring-2 focus:ring-amber-500/20 leading-relaxed"
+                  dir={language.includes('urd') || language.includes('ara') ? 'rtl' : 'ltr'}
+                  className={`w-full h-80 sm:h-96 p-4 rounded-xl bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-amber-500/20 leading-relaxed ${
+                    language.includes('urd') || language.includes('ara') ? 'font-serif text-base' : 'font-sans'
+                  }`}
                 />
               </div>
 

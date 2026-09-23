@@ -3,7 +3,6 @@ import {
   Mic,
   MicOff,
   Volume2,
-  VolumeX,
   Play,
   Pause,
   RotateCcw,
@@ -19,10 +18,11 @@ import {
   Sparkles,
   UploadCloud,
   Trash2,
-  Volume1,
   File,
   Headphones,
-  Sliders
+  Sliders,
+  Radio,
+  AlertCircle
 } from 'lucide-react';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
 import { checkLicense } from '../../utils/license';
@@ -57,11 +57,13 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
   const [interimText, setInterimText] = useState<string>('');
   const [selectedLang, setSelectedLang] = useState<string>('ur-PK');
   const [copied, setCopied] = useState<boolean>(false);
+  const [statusMessage, setStatusMessage] = useState<string>('');
 
   // Live Speech Recognition State
   const [isListening, setIsListening] = useState<boolean>(false);
   const [isSupported, setIsSupported] = useState<boolean>(true);
   const recognitionRef = useRef<any>(null);
+  const isListeningRef = useRef<boolean>(false);
 
   // Audio File State
   const [audioFile, setAudioFile] = useState<File | null>(null);
@@ -70,6 +72,7 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
   const [audioCurrentTime, setAudioCurrentTime] = useState<number>(0);
   const [audioDuration, setAudioDuration] = useState<number>(0);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
+  const [isAutoTranscribing, setIsAutoTranscribing] = useState<boolean>(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -85,6 +88,7 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
       setIsSupported(false);
+      setStatusMessage('Speech Recognition API is not supported in this browser. Please use Chrome or Edge.');
     }
 
     // Load TTS Voices
@@ -103,6 +107,7 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
     }
 
     return () => {
+      isListeningRef.current = false;
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
@@ -115,16 +120,27 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
   }, []);
 
   // Speech Recognition Control
-  const startListening = () => {
+  const startListening = async () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert('Speech recognition is not supported in this browser. Please use Chrome, Edge, or a Chromium-based browser.');
+      alert('Speech recognition is not supported in this browser. Please use Google Chrome, Edge, or Android Browser.');
       return;
     }
 
     try {
+      // Request mic permission first
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        try {
+          await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (permErr) {
+          console.warn('Microphone permission request:', permErr);
+        }
+      }
+
       if (recognitionRef.current) {
-        recognitionRef.current.stop();
+        try {
+          recognitionRef.current.stop();
+        } catch {}
       }
 
       const recognition = new SpeechRecognition();
@@ -133,7 +149,9 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
       recognition.lang = selectedLang;
 
       recognition.onstart = () => {
+        isListeningRef.current = true;
         setIsListening(true);
+        setStatusMessage('Listening... Speak now into your microphone.');
       };
 
       recognition.onresult = (event: any) => {
@@ -157,25 +175,46 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
       recognition.onerror = (event: any) => {
         console.error('Speech recognition error:', event.error);
         if (event.error === 'not-allowed') {
-          alert('Microphone access was denied. Please allow microphone permissions in your browser/app settings.');
+          setStatusMessage('Microphone access denied. Please allow microphone permissions in browser.');
+          alert('Microphone access was denied. Please allow microphone permissions in your browser URL bar.');
+        } else if (event.error === 'no-speech') {
+          setStatusMessage('No speech detected. Please speak closer to your microphone.');
+        } else {
+          setStatusMessage(`Speech engine status: ${event.error}`);
         }
-        setIsListening(false);
+        if (event.error === 'not-allowed' || event.error === 'audio-capture') {
+          isListeningRef.current = false;
+          setIsListening(false);
+        }
       };
 
       recognition.onend = () => {
-        setIsListening(false);
-        setInterimText('');
+        if (isListeningRef.current) {
+          // Auto-restart continuous listening on pauses
+          try {
+            recognition.start();
+          } catch {
+            isListeningRef.current = false;
+            setIsListening(false);
+          }
+        } else {
+          setIsListening(false);
+          setInterimText('');
+        }
       };
 
       recognitionRef.current = recognition;
       recognition.start();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to start speech recognition:', err);
+      setStatusMessage(`Failed to initialize microphone: ${err.message || err}`);
       setIsListening(false);
+      isListeningRef.current = false;
     }
   };
 
   const stopListening = () => {
+    isListeningRef.current = false;
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
@@ -183,6 +222,7 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
     }
     setIsListening(false);
     setInterimText('');
+    setStatusMessage('Voice typing stopped.');
   };
 
   // Audio File Upload
@@ -201,6 +241,90 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
     setAudioUrl(url);
     setIsPlayingAudio(false);
     setAudioCurrentTime(0);
+    setStatusMessage(`Loaded audio file: ${file.name}`);
+  };
+
+  // Automated Audio File Transcription
+  const handleStartAutoTranscribe = async () => {
+    if (!audioFile || !audioUrl) {
+      alert('Please upload an audio file first.');
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Speech Recognition is not supported in this browser.');
+      return;
+    }
+
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        try {
+          await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch {}
+      }
+
+      setIsAutoTranscribing(true);
+      setStatusMessage('Starting audio playback transcription...');
+
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = selectedLang;
+
+      const audio = audioRef.current || new Audio(audioUrl);
+      audio.currentTime = 0;
+      audio.play();
+      setIsPlayingAudio(true);
+
+      let fullAudioText = '';
+
+      recognition.onresult = (event: any) => {
+        let currentTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            const mins = Math.floor(audio.currentTime / 60);
+            const secs = Math.floor(audio.currentTime % 60);
+            const timeStr = `[${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}] `;
+            const piece = timeStr + event.results[i][0].transcript.trim();
+            currentTranscript += piece + '\n';
+          }
+        }
+        if (currentTranscript) {
+          fullAudioText += currentTranscript;
+          setTranscript((prev) => (prev ? prev.trim() + '\n' + currentTranscript : currentTranscript));
+        }
+      };
+
+      recognition.onend = () => {
+        if (!audio.paused && !audio.ended && isAutoTranscribing) {
+          try {
+            recognition.start();
+          } catch {}
+        } else {
+          setIsAutoTranscribing(false);
+          setIsPlayingAudio(false);
+          setStatusMessage('Audio file transcription complete!');
+        }
+      };
+
+      audio.onended = () => {
+        setIsPlayingAudio(false);
+        setIsAutoTranscribing(false);
+        try {
+          recognition.stop();
+        } catch {}
+        setStatusMessage('Audio finished playing and transcribing!');
+      };
+
+      recognition.start();
+      recognitionRef.current = recognition;
+    } catch (err: any) {
+      console.error('Auto Transcribe Error:', err);
+      setIsAutoTranscribing(false);
+      setIsPlayingAudio(false);
+      setStatusMessage(`Transcription error: ${err.message || err}`);
+    }
   };
 
   // Audio Playback Helpers
@@ -398,7 +522,9 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
   // Statistics
   const words = transcript.trim() ? transcript.trim().split(/\s+/).length : 0;
   const chars = transcript.length;
-  const estSpeakingTime = Math.ceil(words / 130); // avg 130 wpm
+  const estSpeakingTime = Math.ceil(words / 130);
+
+  const isRtl = selectedLang.startsWith('ur') || selectedLang.startsWith('ar') || selectedLang.startsWith('fa');
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -413,11 +539,11 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
               Audio to Text &amp; Voice Studio
             </h1>
             <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-              100% Offline &amp; Private
+              100% Client-Side
             </span>
           </div>
           <p className="text-xs text-stone-600 dark:text-stone-400">
-            Real-time live voice typing, audio file playback dictation, and speech synthesis without uploading any audio.
+            Real-time live voice typing, audio file transcriber, and speech synthesis.
           </p>
         </div>
 
@@ -433,7 +559,7 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
             }`}
           >
             <Mic className="w-3.5 h-3.5" />
-            <span>Voice Typing</span>
+            <span>Live Voice Typing</span>
           </button>
           <button
             type="button"
@@ -462,6 +588,14 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
         </div>
       </div>
 
+      {/* Status Bar */}
+      {statusMessage && (
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200">
+          <Radio className="w-4 h-4 animate-pulse shrink-0" />
+          <span>{statusMessage}</span>
+        </div>
+      )}
+
       {/* Main Workspace Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Side: Controls & Tools */}
@@ -472,7 +606,7 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
                   <Languages className="w-4 h-4 text-emerald-600" />
-                  Recognition Language
+                  Voice Language
                 </span>
               </div>
 
@@ -490,27 +624,34 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
               </select>
 
               {/* Big Mic Button */}
-              <div className="pt-2 flex flex-col items-center justify-center gap-3">
+              <div className="pt-4 flex flex-col items-center justify-center gap-4">
                 <button
                   type="button"
                   onClick={isListening ? stopListening : startListening}
-                  className={`relative p-6 rounded-full transition-all cursor-pointer shadow-lg ${
+                  className={`relative p-7 rounded-full transition-all cursor-pointer shadow-xl ${
                     isListening
-                      ? 'bg-rose-600 hover:bg-rose-700 text-white animate-pulse ring-8 ring-rose-500/20'
+                      ? 'bg-rose-600 hover:bg-rose-700 text-white animate-pulse ring-8 ring-rose-500/30'
                       : 'bg-emerald-600 hover:bg-emerald-700 text-white hover:scale-105'
                   }`}
                   aria-label={isListening ? 'Stop Listening' : 'Start Listening'}
                 >
-                  {isListening ? <MicOff className="w-8 h-8" /> : <Mic className="w-8 h-8" />}
+                  {isListening ? <MicOff className="w-9 h-9" /> : <Mic className="w-9 h-9" />}
                 </button>
-                <div className="text-center">
+                <div className="text-center space-y-1">
                   <p className="text-sm font-bold text-stone-900 dark:text-stone-100">
-                    {isListening ? 'Listening & Transcribing...' : 'Click Mic to Start Voice Typing'}
+                    {isListening ? '🔴 Recording & Typing...' : 'Click Mic to Start Talking'}
                   </p>
-                  <p className="text-[11px] text-stone-500">
-                    {isListening ? 'Speak naturally into your microphone' : 'Auto detects speech and writes text live'}
+                  <p className="text-xs text-stone-500">
+                    {isListening ? 'Bolte jayein — text foran screen par likha jayega' : 'Direct speech-to-text dictation'}
                   </p>
                 </div>
+              </div>
+
+              {/* Tips */}
+              <div className="p-3 bg-stone-50 dark:bg-stone-800/50 rounded-xl border border-stone-200 dark:border-stone-800 text-[11px] text-stone-600 dark:text-stone-400 space-y-1">
+                <p className="font-semibold text-stone-800 dark:text-stone-200">💡 Voice Typing Tips:</p>
+                <p>• Click once to start, speak clearly in Urdu, English, or Arabic.</p>
+                <p>• Text is transcribed in real-time and editable immediately.</p>
               </div>
             </div>
           )}
@@ -518,10 +659,30 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
           {/* Tab 2: Audio File Transcriber Controls */}
           {activeTab === 'audio-file' && (
             <div className="p-5 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs space-y-4">
-              <h3 className="text-xs font-bold text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
-                <Headphones className="w-4 h-4 text-emerald-600" />
-                Audio File Player &amp; Scrubber
-              </h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
+                  <Headphones className="w-4 h-4 text-emerald-600" />
+                  Audio File Transcriber
+                </h3>
+              </div>
+
+              <div>
+                <label className="text-xs text-stone-600 dark:text-stone-400 font-medium block mb-1">
+                  Audio Language
+                </label>
+                <select
+                  value={selectedLang}
+                  onChange={(e) => setSelectedLang(e.target.value)}
+                  disabled={isAutoTranscribing}
+                  className="w-full p-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs font-medium text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                >
+                  {LANGUAGES.map((lang) => (
+                    <option key={lang.code} value={lang.code}>
+                      {lang.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
               {!audioFile ? (
                 <div
@@ -539,10 +700,10 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
                   />
                   <UploadCloud className="w-8 h-8 text-stone-400" />
                   <p className="text-xs font-semibold text-stone-800 dark:text-stone-200">
-                    Select Audio File
+                    Upload Audio File (.mp3, .wav, .m4a)
                   </p>
                   <p className="text-[10px] text-stone-500">
-                    Supports MP3, WAV, M4A, OGG, WebM
+                    Supports Voice Notes, Speeches, Lectures
                   </p>
                 </div>
               ) : (
@@ -579,10 +740,24 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
                       onLoadedMetadata={() => {
                         if (audioRef.current) setAudioDuration(audioRef.current.duration);
                       }}
-                      onEnded={() => setIsPlayingAudio(false)}
+                      onEnded={() => {
+                        setIsPlayingAudio(false);
+                        setIsAutoTranscribing(false);
+                      }}
                       className="hidden"
                     />
                   )}
+
+                  {/* Auto Transcribe Action Button */}
+                  <button
+                    type="button"
+                    onClick={handleStartAutoTranscribe}
+                    disabled={isAutoTranscribing}
+                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    {isAutoTranscribing ? 'Transcribing Audio...' : 'Auto-Transcribe Audio File'}
+                  </button>
 
                   {/* Scrubber */}
                   <div className="space-y-1">
@@ -612,48 +787,43 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
                     <button
                       type="button"
                       onClick={() => skipAudio(-5)}
-                      className="p-2 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                      className="p-2 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs cursor-pointer"
                       title="Rewind 5s"
                     >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      5s
+                      <RotateCcw className="w-4 h-4" />
                     </button>
-
                     <button
                       type="button"
                       onClick={togglePlayAudio}
-                      className="p-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm cursor-pointer"
+                      className="p-3 rounded-xl bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 shadow-md hover:scale-105 transition-transform cursor-pointer"
                     >
-                      {isPlayingAudio ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
+                      {isPlayingAudio ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                     </button>
-
                     <button
                       type="button"
                       onClick={() => skipAudio(5)}
-                      className="p-2 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                      className="p-2 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs cursor-pointer"
                       title="Forward 5s"
                     >
-                      <RotateCw className="w-3.5 h-3.5" />
-                      5s
+                      <RotateCw className="w-4 h-4" />
                     </button>
                   </div>
 
-                  {/* Speed & Insert Timestamp */}
-                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-stone-200 dark:border-stone-800">
+                  {/* Speed & Timestamp */}
+                  <div className="flex items-center justify-between pt-2 border-t border-stone-200 dark:border-stone-800 text-xs">
                     <div className="flex items-center gap-1">
-                      <Sliders className="w-3.5 h-3.5 text-stone-400" />
-                      {[0.75, 1, 1.25, 1.5].map((spd) => (
+                      {[0.75, 1, 1.25, 1.5].map((speed) => (
                         <button
-                          key={spd}
+                          key={speed}
                           type="button"
-                          onClick={() => changeSpeed(spd)}
-                          className={`text-[10px] px-1.5 py-0.5 rounded font-bold cursor-pointer ${
-                            playbackSpeed === spd
+                          onClick={() => changeSpeed(speed)}
+                          className={`px-2 py-1 rounded text-[10px] font-bold cursor-pointer ${
+                            playbackSpeed === speed
                               ? 'bg-emerald-600 text-white'
-                              : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400'
+                              : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300'
                           }`}
                         >
-                          {spd}x
+                          {speed}x
                         </button>
                       ))}
                     </div>
@@ -661,10 +831,10 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
                     <button
                       type="button"
                       onClick={insertTimestamp}
-                      className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+                      className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
                     >
                       <Clock className="w-3 h-3" />
-                      Insert Stamp
+                      Add Timestamp
                     </button>
                   </div>
                 </div>
@@ -672,35 +842,37 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
             </div>
           )}
 
-          {/* Tab 3: Text to Speech (Voice Reader) */}
+          {/* Tab 3: Text to Speech Controls */}
           {activeTab === 'text-to-speech' && (
             <div className="p-5 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs space-y-4">
               <h3 className="text-xs font-bold text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
                 <Volume2 className="w-4 h-4 text-emerald-600" />
-                Text to Speech (Audio Voice Reader)
+                Text to Speech (Voice Synthesizer)
               </h3>
 
               {/* Voice Selector */}
-              <div className="space-y-1">
-                <label className="text-[11px] font-medium text-stone-500">Select Voice</label>
+              <div>
+                <label className="text-xs text-stone-600 dark:text-stone-400 font-medium block mb-1">
+                  Voice Accent &amp; Reader
+                </label>
                 <select
                   value={selectedVoice}
                   onChange={(e) => setSelectedVoice(e.target.value)}
-                  className="w-full p-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs font-medium text-stone-900 dark:text-stone-100 focus:outline-none"
+                  className="w-full p-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs font-medium text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                 >
-                  {ttsVoices.map((v) => (
-                    <option key={v.name} value={v.name}>
-                      {v.name} ({v.lang})
+                  {ttsVoices.map((voice) => (
+                    <option key={voice.name} value={voice.name}>
+                      {voice.name} ({voice.lang})
                     </option>
                   ))}
                 </select>
               </div>
 
-              {/* Speed & Pitch Controls */}
+              {/* Sliders: Rate & Pitch */}
               <div className="space-y-3">
-                <div className="space-y-1">
-                  <div className="flex justify-between text-[11px] text-stone-600 dark:text-stone-400 font-medium">
-                    <span>Speed / Rate</span>
+                <div>
+                  <div className="flex justify-between text-[11px] text-stone-500 mb-1">
+                    <span>Reading Speed</span>
                     <span>{ttsRate}x</span>
                   </div>
                   <input
@@ -710,14 +882,14 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
                     step="0.1"
                     value={ttsRate}
                     onChange={(e) => setTtsRate(parseFloat(e.target.value))}
-                    className="w-full accent-emerald-600"
+                    className="w-full accent-emerald-600 cursor-pointer"
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <div className="flex justify-between text-[11px] text-stone-600 dark:text-stone-400 font-medium">
+                <div>
+                  <div className="flex justify-between text-[11px] text-stone-500 mb-1">
                     <span>Pitch</span>
-                    <span>{ttsPitch}</span>
+                    <span>{ttsPitch}x</span>
                   </div>
                   <input
                     type="range"
@@ -726,139 +898,131 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
                     step="0.1"
                     value={ttsPitch}
                     onChange={(e) => setTtsPitch(parseFloat(e.target.value))}
-                    className="w-full accent-emerald-600"
+                    className="w-full accent-emerald-600 cursor-pointer"
                   />
                 </div>
               </div>
 
-              {/* Speak Button */}
+              {/* Speak / Stop Button */}
               <button
                 type="button"
                 onClick={isSpeaking ? stopSpeaking : speakText}
-                className={`w-full py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm ${
-                  isSpeaking
-                    ? 'bg-rose-600 hover:bg-rose-700 text-white animate-pulse'
-                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                className={`w-full py-3 rounded-xl text-xs font-bold text-white shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                  isSpeaking ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'
                 }`}
               >
                 {isSpeaking ? (
                   <>
-                    <VolumeX className="w-4 h-4" />
-                    Stop Speaking
+                    <Pause className="w-4 h-4" />
+                    Stop Voice Reading
                   </>
                 ) : (
                   <>
-                    <Volume1 className="w-4 h-4" />
-                    Read Aloud Transcript
+                    <Volume2 className="w-4 h-4" />
+                    Read Text Aloud
                   </>
                 )}
               </button>
             </div>
           )}
 
-          {/* Privacy & Guarantee Card */}
-          <div className="p-4 rounded-2xl bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 space-y-2">
-            <div className="flex items-center gap-2 text-xs font-bold text-emerald-700 dark:text-emerald-400">
-              <ShieldCheck className="w-4 h-4" />
-              <span>Offline &amp; Secure Processing</span>
-            </div>
-            <p className="text-[11px] text-stone-600 dark:text-stone-400 leading-relaxed">
-              PixDoc processes all voice streams and audio playback locally on your device without sending any audio packets to third-party servers.
-            </p>
+          {/* Privacy Box */}
+          <div className="p-4 rounded-xl bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-[11px] text-stone-600 dark:text-stone-400 flex items-start gap-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+            <span>
+              All voice recordings and transcripts are processed privately on your device. Zero audio data is stored on remote servers.
+            </span>
           </div>
         </div>
 
-        {/* Right Side: Big Transcript Editor & Exports */}
+        {/* Right Side: Text Editor & Export Actions */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="p-5 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs space-y-4 flex flex-col h-full min-h-[460px]">
-            {/* Editor Top Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 dark:border-stone-800 pb-3">
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-emerald-600" />
-                <span className="text-xs font-bold text-stone-900 dark:text-stone-100">
-                  Transcribed Text &amp; Editor
-                </span>
-                {isListening && (
-                  <span className="flex items-center gap-1 text-[10px] font-bold text-rose-500 animate-pulse">
-                    <span className="w-2 h-2 rounded-full bg-rose-500" />
-                    LIVE
-                  </span>
+          <div className="p-5 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs space-y-4 flex flex-col justify-between min-h-[480px]">
+            <div>
+              {/* Header inside Editor */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-stone-200 dark:border-stone-800">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-emerald-600" />
+                  <h3 className="text-xs font-bold text-stone-900 dark:text-stone-100">
+                    Live Transcript &amp; Text Editor
+                  </h3>
+                  {isListening && (
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 text-[10px] font-bold animate-pulse">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
+                      LIVE
+                    </span>
+                  )}
+                </div>
+
+                {transcript && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCopy}
+                      className="px-2.5 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-medium flex items-center gap-1.5 cursor-pointer"
+                    >
+                      {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copied ? 'Copied' : 'Copy'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setTranscript('')}
+                      className="px-2.5 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 text-xs font-medium flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Clear
+                    </button>
+                  </div>
                 )}
               </div>
 
-              {/* Actions */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleCopy}
-                  disabled={!transcript}
-                  className="px-2.5 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-40 cursor-pointer"
-                >
-                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copied ? 'Copied' : 'Copy'}</span>
-                </button>
+              {/* Textarea with interim preview */}
+              <div className="my-3 relative">
+                <textarea
+                  value={transcript}
+                  onChange={(e) => setTranscript(e.target.value)}
+                  placeholder={
+                    isListening
+                      ? "Listening... Your words will appear here in real-time."
+                      : "Type, dictate via mic, or upload an audio file to convert to text..."
+                  }
+                  dir={isRtl ? 'rtl' : 'ltr'}
+                  className={`w-full h-80 sm:h-96 p-4 rounded-xl bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 leading-relaxed ${
+                    isRtl ? 'font-serif text-base' : 'font-sans'
+                  }`}
+                />
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (confirm('Clear transcript text?')) {
-                      setTranscript('');
-                      setInterimText('');
-                    }
-                  }}
-                  disabled={!transcript}
-                  className="px-2.5 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-rose-100 dark:hover:bg-rose-950/40 hover:text-rose-600 text-stone-700 dark:text-stone-300 text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-40 cursor-pointer"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Clear</span>
-                </button>
+                {interimText && (
+                  <div
+                    dir={isRtl ? 'rtl' : 'ltr'}
+                    className="absolute bottom-4 left-4 right-4 p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-700 dark:text-emerald-300 text-xs italic pointer-events-none"
+                  >
+                    Speaking: {interimText}...
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Textarea */}
-            <div className="relative flex-1 flex flex-col">
-              <textarea
-                value={transcript}
-                onChange={(e) => setTranscript(e.target.value)}
-                placeholder={
-                  activeTab === 'speech-to-text'
-                    ? "Click the microphone button on the left to start voice typing, or type here directly..."
-                    : activeTab === 'audio-file'
-                    ? "Play your audio on the left and type your transcription here with timestamps..."
-                    : "Type or paste text here to read aloud using speech synthesis..."
-                }
-                dir={selectedLang.startsWith('ur') || selectedLang.startsWith('ar') || selectedLang.startsWith('fa') ? 'rtl' : 'ltr'}
-                className="w-full flex-1 p-4 rounded-xl bg-stone-50/50 dark:bg-stone-950/50 border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 text-sm font-sans resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 leading-relaxed"
-              />
-
-              {/* Interim Real-time Preview Overlay */}
-              {interimText && (
-                <div
-                  dir={selectedLang.startsWith('ur') || selectedLang.startsWith('ar') || selectedLang.startsWith('fa') ? 'rtl' : 'ltr'}
-                  className="absolute bottom-3 left-3 right-3 p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200 text-xs font-medium italic animate-pulse"
-                >
-                  {interimText}
+            {/* Footer / Stats & Multi-Format Exports */}
+            <div className="space-y-3 pt-3 border-t border-stone-200 dark:border-stone-800">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-stone-500">
+                <div className="flex items-center gap-3">
+                  <span><strong>{words}</strong> words</span>
+                  <span><strong>{chars}</strong> characters</span>
+                  <span>~<strong>{estSpeakingTime}</strong> min speech</span>
                 </div>
-              )}
-            </div>
-
-            {/* Stats Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] text-stone-500 border-t border-stone-200 dark:border-stone-800 pt-3">
-              <div className="flex items-center gap-4">
-                <span><strong>{words}</strong> words</span>
-                <span><strong>{chars}</strong> characters</span>
-                <span>~<strong>{estSpeakingTime}</strong> min speaking time</span>
               </div>
 
-              {/* Export Buttons */}
-              <div className="flex flex-wrap items-center gap-2">
+              {/* Download Buttons */}
+              <div className="flex flex-wrap items-center gap-2 pt-1">
                 <button
                   type="button"
                   onClick={exportDocx}
                   disabled={!transcript}
-                  className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors disabled:opacity-40 cursor-pointer"
+                  className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer disabled:opacity-40"
                 >
-                  <Download className="w-3 h-3" />
+                  <Download className="w-3.5 h-3.5" />
                   Word (.docx)
                 </button>
 
@@ -866,9 +1030,9 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
                   type="button"
                   onClick={exportTxt}
                   disabled={!transcript}
-                  className="px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-white dark:bg-stone-200 dark:text-stone-900 dark:hover:bg-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors disabled:opacity-40 cursor-pointer"
+                  className="px-3.5 py-2 bg-stone-800 hover:bg-stone-700 text-white dark:bg-stone-200 dark:text-stone-900 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer disabled:opacity-40"
                 >
-                  <FileText className="w-3 h-3" />
+                  <FileText className="w-3.5 h-3.5" />
                   Text (.txt)
                 </button>
 
@@ -876,10 +1040,10 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
                   type="button"
                   onClick={exportSrt}
                   disabled={!transcript}
-                  className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors disabled:opacity-40 cursor-pointer"
+                  className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer disabled:opacity-40"
                 >
-                  <FileCode className="w-3 h-3" />
-                  SRT Subtitle
+                  <FileCode className="w-3.5 h-3.5" />
+                  SRT Subtitles
                 </button>
               </div>
             </div>
