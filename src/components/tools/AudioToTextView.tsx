@@ -1,0 +1,891 @@
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  Play,
+  Pause,
+  RotateCcw,
+  RotateCw,
+  Download,
+  Copy,
+  Check,
+  FileText,
+  FileCode,
+  ShieldCheck,
+  Languages,
+  Clock,
+  Sparkles,
+  UploadCloud,
+  Trash2,
+  Volume1,
+  File,
+  Headphones,
+  Sliders
+} from 'lucide-react';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
+import { checkLicense } from '../../utils/license';
+
+interface AudioToTextViewProps {
+  onProcessComplete?: (historyItem: any) => void;
+}
+
+const LANGUAGES = [
+  { code: 'ur-PK', label: 'اردو (Urdu - Pakistan)' },
+  { code: 'en-US', label: 'English (US)' },
+  { code: 'en-GB', label: 'English (UK)' },
+  { code: 'ar-SA', label: 'العربية (Arabic - Saudi Arabia)' },
+  { code: 'hi-IN', label: 'हिन्दी (Hindi)' },
+  { code: 'fa-IR', label: 'فارسی (Persian)' },
+  { code: 'tr-TR', label: 'Türkçe (Turkish)' },
+  { code: 'es-ES', label: 'Español (Spanish)' },
+  { code: 'fr-FR', label: 'Français (French)' },
+  { code: 'de-DE', label: 'Deutsch (German)' },
+  { code: 'zh-CN', label: '中文 (Chinese Simplified)' },
+];
+
+export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessComplete }) => {
+  const [license] = useState(checkLicense());
+  const isPro = license.isPro;
+
+  // Mode: 'speech-to-text' | 'audio-file' | 'text-to-speech'
+  const [activeTab, setActiveTab] = useState<'speech-to-text' | 'audio-file' | 'text-to-speech'>('speech-to-text');
+
+  // Text State
+  const [transcript, setTranscript] = useState<string>('');
+  const [interimText, setInterimText] = useState<string>('');
+  const [selectedLang, setSelectedLang] = useState<string>('ur-PK');
+  const [copied, setCopied] = useState<boolean>(false);
+
+  // Live Speech Recognition State
+  const [isListening, setIsListening] = useState<boolean>(false);
+  const [isSupported, setIsSupported] = useState<boolean>(true);
+  const recognitionRef = useRef<any>(null);
+
+  // Audio File State
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isPlayingAudio, setIsPlayingAudio] = useState<boolean>(false);
+  const [audioCurrentTime, setAudioCurrentTime] = useState<number>(0);
+  const [audioDuration, setAudioDuration] = useState<number>(0);
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Text to Speech State
+  const [ttsRate, setTtsRate] = useState<number>(1);
+  const [ttsPitch, setTtsPitch] = useState<number>(1);
+  const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
+  const [ttsVoices, setTtsVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoice, setSelectedVoice] = useState<string>('');
+
+  // Initialize Speech Recognition & Voices
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setIsSupported(false);
+    }
+
+    // Load TTS Voices
+    if ('speechSynthesis' in window) {
+      const loadVoices = () => {
+        const voices = window.speechSynthesis.getVoices();
+        setTtsVoices(voices);
+        if (voices.length > 0 && !selectedVoice) {
+          const defaultVoice = voices.find(v => v.lang.startsWith(selectedLang.slice(0, 2))) || voices[0];
+          setSelectedVoice(defaultVoice?.name || voices[0].name);
+        }
+      };
+
+      loadVoices();
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {}
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  // Speech Recognition Control
+  const startListening = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Speech recognition is not supported in this browser. Please use Chrome, Edge, or a Chromium-based browser.');
+      return;
+    }
+
+    try {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = selectedLang;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        let currentInterim = '';
+        let newFinal = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            newFinal += event.results[i][0].transcript + ' ';
+          } else {
+            currentInterim += event.results[i][0].transcript;
+          }
+        }
+
+        if (newFinal) {
+          setTranscript((prev) => (prev ? prev.trim() + ' ' + newFinal.trim() : newFinal.trim()));
+        }
+        setInterimText(currentInterim);
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        if (event.error === 'not-allowed') {
+          alert('Microphone access was denied. Please allow microphone permissions in your browser/app settings.');
+        }
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+        setInterimText('');
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err) {
+      console.error('Failed to start speech recognition:', err);
+      setIsListening(false);
+    }
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {}
+    }
+    setIsListening(false);
+    setInterimText('');
+  };
+
+  // Audio File Upload
+  const handleAudioUpload = (file: File) => {
+    if (!file.type.startsWith('audio/') && !file.name.match(/\.(mp3|wav|ogg|m4a|aac|flac|webm)$/i)) {
+      alert('Please select a valid audio file (MP3, WAV, M4A, OGG, etc.)');
+      return;
+    }
+
+    if (audioUrl) {
+      URL.revokeObjectURL(audioUrl);
+    }
+
+    const url = URL.createObjectURL(file);
+    setAudioFile(file);
+    setAudioUrl(url);
+    setIsPlayingAudio(false);
+    setAudioCurrentTime(0);
+  };
+
+  // Audio Playback Helpers
+  const togglePlayAudio = () => {
+    if (!audioRef.current) return;
+    if (isPlayingAudio) {
+      audioRef.current.pause();
+      setIsPlayingAudio(false);
+    } else {
+      audioRef.current.play();
+      setIsPlayingAudio(true);
+    }
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const time = parseFloat(e.target.value);
+    setAudioCurrentTime(time);
+    if (audioRef.current) {
+      audioRef.current.currentTime = time;
+    }
+  };
+
+  const skipAudio = (seconds: number) => {
+    if (!audioRef.current) return;
+    const newTime = Math.max(0, Math.min(audioRef.current.duration || 0, audioRef.current.currentTime + seconds));
+    audioRef.current.currentTime = newTime;
+    setAudioCurrentTime(newTime);
+  };
+
+  const changeSpeed = (speed: number) => {
+    setPlaybackSpeed(speed);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = speed;
+    }
+  };
+
+  // Insert Timestamp to text
+  const insertTimestamp = () => {
+    const mins = Math.floor(audioCurrentTime / 60);
+    const secs = Math.floor(audioCurrentTime % 60);
+    const stamp = `[${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}] `;
+    setTranscript((prev) => (prev ? prev.trim() + '\n' + stamp : stamp));
+  };
+
+  // Text-To-Speech (Speech Synthesis)
+  const speakText = () => {
+    if (!('speechSynthesis' in window)) {
+      alert('Text to speech is not supported on your browser.');
+      return;
+    }
+
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+
+    const textToSpeak = transcript.trim();
+    if (!textToSpeak) {
+      alert('Please enter or dictate some text to read aloud.');
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(textToSpeak);
+    utterance.rate = ttsRate;
+    utterance.pitch = ttsPitch;
+
+    if (selectedVoice) {
+      const voice = ttsVoices.find(v => v.name === selectedVoice);
+      if (voice) utterance.voice = voice;
+    }
+
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const stopSpeaking = () => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setIsSpeaking(false);
+  };
+
+  // Copy to clipboard
+  const handleCopy = () => {
+    if (!transcript) return;
+    navigator.clipboard.writeText(transcript);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Export to TXT
+  const exportTxt = () => {
+    if (!transcript) return;
+    const blob = new Blob([transcript], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `PixDoc-Transcript-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Export to DOCX
+  const exportDocx = async () => {
+    if (!transcript) return;
+    try {
+      const paragraphs = transcript.split('\n').map((line) => {
+        return new Paragraph({
+          children: [
+            new TextRun({
+              text: line,
+              size: 24, // 12pt
+              font: 'Calibri',
+            }),
+          ],
+          spacing: { after: 120 },
+        });
+      });
+
+      const doc = new Document({
+        sections: [
+          {
+            properties: {},
+            children: [
+              new Paragraph({
+                text: 'PixDoc Audio Transcript',
+                heading: HeadingLevel.HEADING_1,
+                spacing: { after: 200 },
+              }),
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: `Language: ${selectedLang} | Generated with PixDoc Offline Audio Studio`,
+                    italics: true,
+                    size: 18,
+                    color: '666666',
+                  }),
+                ],
+                spacing: { after: 300 },
+              }),
+              ...paragraphs,
+            ],
+          },
+        ],
+      });
+
+      const blob = await Packer.toBlob(doc);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `PixDoc-Transcript-${Date.now()}.docx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to export DOCX:', err);
+      alert('Error creating Word document. Please try exporting as TXT.');
+    }
+  };
+
+  // Export to SRT Subtitles
+  const exportSrt = () => {
+    if (!transcript) return;
+    const lines = transcript.split('\n').filter(l => l.trim().length > 0);
+    let srtContent = '';
+    let currentSeconds = 0;
+
+    lines.forEach((line, index) => {
+      const startMin = Math.floor(currentSeconds / 60);
+      const startSec = Math.floor(currentSeconds % 60);
+      const endSecTotal = currentSeconds + 4;
+      const endMin = Math.floor(endSecTotal / 60);
+      const endSec = Math.floor(endSecTotal % 60);
+
+      const startTime = `00:${String(startMin).padStart(2, '0')}:${String(startSec).padStart(2, '0')},000`;
+      const endTime = `00:${String(endMin).padStart(2, '0')}:${String(endSec).padStart(2, '0')},000`;
+
+      srtContent += `${index + 1}\n${startTime} --> ${endTime}\n${line}\n\n`;
+      currentSeconds += 4;
+    });
+
+    const blob = new Blob([srtContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `PixDoc-Subtitles-${Date.now()}.srt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Statistics
+  const words = transcript.trim() ? transcript.trim().split(/\s+/).length : 0;
+  const chars = transcript.length;
+  const estSpeakingTime = Math.ceil(words / 130); // avg 130 wpm
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-6">
+      {/* Header Banner */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-6 rounded-2xl bg-gradient-to-r from-emerald-900/20 via-teal-900/10 to-stone-900/20 border border-emerald-500/20 dark:border-emerald-500/10 backdrop-blur-xs">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="p-2 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+              <Mic className="w-5 h-5" />
+            </span>
+            <h1 className="text-xl font-bold text-stone-900 dark:text-stone-100">
+              Audio to Text &amp; Voice Studio
+            </h1>
+            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              100% Offline &amp; Private
+            </span>
+          </div>
+          <p className="text-xs text-stone-600 dark:text-stone-400">
+            Real-time live voice typing, audio file playback dictation, and speech synthesis without uploading any audio.
+          </p>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="flex items-center gap-1.5 p-1 bg-stone-200/70 dark:bg-stone-800/70 rounded-xl border border-stone-300/40 dark:border-stone-700/40 self-stretch sm:self-auto">
+          <button
+            type="button"
+            onClick={() => setActiveTab('speech-to-text')}
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === 'speech-to-text'
+                ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 shadow-sm'
+                : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-stone-100'
+            }`}
+          >
+            <Mic className="w-3.5 h-3.5" />
+            <span>Voice Typing</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('audio-file')}
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === 'audio-file'
+                ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 shadow-sm'
+                : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-stone-100'
+            }`}
+          >
+            <Headphones className="w-3.5 h-3.5" />
+            <span>Audio File</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('text-to-speech')}
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === 'text-to-speech'
+                ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 shadow-sm'
+                : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-stone-100'
+            }`}
+          >
+            <Volume2 className="w-3.5 h-3.5" />
+            <span>Text to Speech</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Main Workspace Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Side: Controls & Tools */}
+        <div className="space-y-4">
+          {/* Tab 1: Live Voice Typing Controls */}
+          {activeTab === 'speech-to-text' && (
+            <div className="p-5 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
+                  <Languages className="w-4 h-4 text-emerald-600" />
+                  Recognition Language
+                </span>
+              </div>
+
+              <select
+                value={selectedLang}
+                onChange={(e) => setSelectedLang(e.target.value)}
+                disabled={isListening}
+                className="w-full p-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs font-medium text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              >
+                {LANGUAGES.map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.label}
+                  </option>
+                ))}
+              </select>
+
+              {/* Big Mic Button */}
+              <div className="pt-2 flex flex-col items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={isListening ? stopListening : startListening}
+                  className={`relative p-6 rounded-full transition-all cursor-pointer shadow-lg ${
+                    isListening
+                      ? 'bg-rose-600 hover:bg-rose-700 text-white animate-pulse ring-8 ring-rose-500/20'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white hover:scale-105'
+                  }`}
+                  aria-label={isListening ? 'Stop Listening' : 'Start Listening'}
+                >
+                  {isListening ? <MicOff className="w-8 h-8" /> : <Mic className="w-8 h-8" />}
+                </button>
+                <div className="text-center">
+                  <p className="text-sm font-bold text-stone-900 dark:text-stone-100">
+                    {isListening ? 'Listening & Transcribing...' : 'Click Mic to Start Voice Typing'}
+                  </p>
+                  <p className="text-[11px] text-stone-500">
+                    {isListening ? 'Speak naturally into your microphone' : 'Auto detects speech and writes text live'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tab 2: Audio File Transcriber Controls */}
+          {activeTab === 'audio-file' && (
+            <div className="p-5 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs space-y-4">
+              <h3 className="text-xs font-bold text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
+                <Headphones className="w-4 h-4 text-emerald-600" />
+                Audio File Player &amp; Scrubber
+              </h3>
+
+              {!audioFile ? (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-6 rounded-xl border-2 border-dashed border-stone-300 dark:border-stone-700 hover:border-emerald-500 dark:hover:border-emerald-500 flex flex-col items-center justify-center gap-2 text-center cursor-pointer transition-colors bg-stone-50/50 dark:bg-stone-800/30"
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.webm"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) handleAudioUpload(e.target.files[0]);
+                    }}
+                    className="hidden"
+                  />
+                  <UploadCloud className="w-8 h-8 text-stone-400" />
+                  <p className="text-xs font-semibold text-stone-800 dark:text-stone-200">
+                    Select Audio File
+                  </p>
+                  <p className="text-[10px] text-stone-500">
+                    Supports MP3, WAV, M4A, OGG, WebM
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* File Info */}
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-stone-100 dark:bg-stone-800 text-xs">
+                    <div className="flex items-center gap-2 truncate">
+                      <File className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span className="font-medium truncate text-stone-800 dark:text-stone-200">
+                        {audioFile.name}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAudioFile(null);
+                        setAudioUrl(null);
+                      }}
+                      className="text-stone-400 hover:text-rose-500 p-1 cursor-pointer"
+                      title="Remove file"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Hidden Audio Element */}
+                  {audioUrl && (
+                    <audio
+                      ref={audioRef}
+                      src={audioUrl}
+                      onTimeUpdate={() => {
+                        if (audioRef.current) setAudioCurrentTime(audioRef.current.currentTime);
+                      }}
+                      onLoadedMetadata={() => {
+                        if (audioRef.current) setAudioDuration(audioRef.current.duration);
+                      }}
+                      onEnded={() => setIsPlayingAudio(false)}
+                      className="hidden"
+                    />
+                  )}
+
+                  {/* Scrubber */}
+                  <div className="space-y-1">
+                    <input
+                      type="range"
+                      min={0}
+                      max={audioDuration || 100}
+                      step={0.1}
+                      value={audioCurrentTime}
+                      onChange={handleSeek}
+                      className="w-full accent-emerald-600 cursor-pointer"
+                    />
+                    <div className="flex justify-between text-[10px] text-stone-500">
+                      <span>
+                        {Math.floor(audioCurrentTime / 60)}:
+                        {String(Math.floor(audioCurrentTime % 60)).padStart(2, '0')}
+                      </span>
+                      <span>
+                        {Math.floor(audioDuration / 60)}:
+                        {String(Math.floor(audioDuration % 60)).padStart(2, '0')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Playback Controls */}
+                  <div className="flex items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => skipAudio(-5)}
+                      className="p-2 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                      title="Rewind 5s"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      5s
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={togglePlayAudio}
+                      className="p-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm cursor-pointer"
+                    >
+                      {isPlayingAudio ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => skipAudio(5)}
+                      className="p-2 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                      title="Forward 5s"
+                    >
+                      <RotateCw className="w-3.5 h-3.5" />
+                      5s
+                    </button>
+                  </div>
+
+                  {/* Speed & Insert Timestamp */}
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-stone-200 dark:border-stone-800">
+                    <div className="flex items-center gap-1">
+                      <Sliders className="w-3.5 h-3.5 text-stone-400" />
+                      {[0.75, 1, 1.25, 1.5].map((spd) => (
+                        <button
+                          key={spd}
+                          type="button"
+                          onClick={() => changeSpeed(spd)}
+                          className={`text-[10px] px-1.5 py-0.5 rounded font-bold cursor-pointer ${
+                            playbackSpeed === spd
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400'
+                          }`}
+                        >
+                          {spd}x
+                        </button>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={insertTimestamp}
+                      className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Clock className="w-3 h-3" />
+                      Insert Stamp
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Tab 3: Text to Speech (Voice Reader) */}
+          {activeTab === 'text-to-speech' && (
+            <div className="p-5 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs space-y-4">
+              <h3 className="text-xs font-bold text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
+                <Volume2 className="w-4 h-4 text-emerald-600" />
+                Text to Speech (Audio Voice Reader)
+              </h3>
+
+              {/* Voice Selector */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-medium text-stone-500">Select Voice</label>
+                <select
+                  value={selectedVoice}
+                  onChange={(e) => setSelectedVoice(e.target.value)}
+                  className="w-full p-2.5 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs font-medium text-stone-900 dark:text-stone-100 focus:outline-none"
+                >
+                  {ttsVoices.map((v) => (
+                    <option key={v.name} value={v.name}>
+                      {v.name} ({v.lang})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Speed & Pitch Controls */}
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[11px] text-stone-600 dark:text-stone-400 font-medium">
+                    <span>Speed / Rate</span>
+                    <span>{ttsRate}x</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="2"
+                    step="0.1"
+                    value={ttsRate}
+                    onChange={(e) => setTtsRate(parseFloat(e.target.value))}
+                    className="w-full accent-emerald-600"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[11px] text-stone-600 dark:text-stone-400 font-medium">
+                    <span>Pitch</span>
+                    <span>{ttsPitch}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="1.5"
+                    step="0.1"
+                    value={ttsPitch}
+                    onChange={(e) => setTtsPitch(parseFloat(e.target.value))}
+                    className="w-full accent-emerald-600"
+                  />
+                </div>
+              </div>
+
+              {/* Speak Button */}
+              <button
+                type="button"
+                onClick={isSpeaking ? stopSpeaking : speakText}
+                className={`w-full py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm ${
+                  isSpeaking
+                    ? 'bg-rose-600 hover:bg-rose-700 text-white animate-pulse'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                }`}
+              >
+                {isSpeaking ? (
+                  <>
+                    <VolumeX className="w-4 h-4" />
+                    Stop Speaking
+                  </>
+                ) : (
+                  <>
+                    <Volume1 className="w-4 h-4" />
+                    Read Aloud Transcript
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
+          {/* Privacy & Guarantee Card */}
+          <div className="p-4 rounded-2xl bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-emerald-700 dark:text-emerald-400">
+              <ShieldCheck className="w-4 h-4" />
+              <span>Offline &amp; Secure Processing</span>
+            </div>
+            <p className="text-[11px] text-stone-600 dark:text-stone-400 leading-relaxed">
+              PixDoc processes all voice streams and audio playback locally on your device without sending any audio packets to third-party servers.
+            </p>
+          </div>
+        </div>
+
+        {/* Right Side: Big Transcript Editor & Exports */}
+        <div className="lg:col-span-2 space-y-4">
+          <div className="p-5 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs space-y-4 flex flex-col h-full min-h-[460px]">
+            {/* Editor Top Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 dark:border-stone-800 pb-3">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-emerald-600" />
+                <span className="text-xs font-bold text-stone-900 dark:text-stone-100">
+                  Transcribed Text &amp; Editor
+                </span>
+                {isListening && (
+                  <span className="flex items-center gap-1 text-[10px] font-bold text-rose-500 animate-pulse">
+                    <span className="w-2 h-2 rounded-full bg-rose-500" />
+                    LIVE
+                  </span>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  disabled={!transcript}
+                  className="px-2.5 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-40 cursor-pointer"
+                >
+                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copied ? 'Copied' : 'Copy'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm('Clear transcript text?')) {
+                      setTranscript('');
+                      setInterimText('');
+                    }
+                  }}
+                  disabled={!transcript}
+                  className="px-2.5 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-rose-100 dark:hover:bg-rose-950/40 hover:text-rose-600 text-stone-700 dark:text-stone-300 text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-40 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Clear</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Textarea */}
+            <div className="relative flex-1 flex flex-col">
+              <textarea
+                value={transcript}
+                onChange={(e) => setTranscript(e.target.value)}
+                placeholder={
+                  activeTab === 'speech-to-text'
+                    ? "Click the microphone button on the left to start voice typing, or type here directly..."
+                    : activeTab === 'audio-file'
+                    ? "Play your audio on the left and type your transcription here with timestamps..."
+                    : "Type or paste text here to read aloud using speech synthesis..."
+                }
+                dir={selectedLang.startsWith('ur') || selectedLang.startsWith('ar') || selectedLang.startsWith('fa') ? 'rtl' : 'ltr'}
+                className="w-full flex-1 p-4 rounded-xl bg-stone-50/50 dark:bg-stone-950/50 border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 text-sm font-sans resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 leading-relaxed"
+              />
+
+              {/* Interim Real-time Preview Overlay */}
+              {interimText && (
+                <div
+                  dir={selectedLang.startsWith('ur') || selectedLang.startsWith('ar') || selectedLang.startsWith('fa') ? 'rtl' : 'ltr'}
+                  className="absolute bottom-3 left-3 right-3 p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200 text-xs font-medium italic animate-pulse"
+                >
+                  {interimText}
+                </div>
+              )}
+            </div>
+
+            {/* Stats Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] text-stone-500 border-t border-stone-200 dark:border-stone-800 pt-3">
+              <div className="flex items-center gap-4">
+                <span><strong>{words}</strong> words</span>
+                <span><strong>{chars}</strong> characters</span>
+                <span>~<strong>{estSpeakingTime}</strong> min speaking time</span>
+              </div>
+
+              {/* Export Buttons */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={exportDocx}
+                  disabled={!transcript}
+                  className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors disabled:opacity-40 cursor-pointer"
+                >
+                  <Download className="w-3 h-3" />
+                  Word (.docx)
+                </button>
+
+                <button
+                  type="button"
+                  onClick={exportTxt}
+                  disabled={!transcript}
+                  className="px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-white dark:bg-stone-200 dark:text-stone-900 dark:hover:bg-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors disabled:opacity-40 cursor-pointer"
+                >
+                  <FileText className="w-3 h-3" />
+                  Text (.txt)
+                </button>
+
+                <button
+                  type="button"
+                  onClick={exportSrt}
+                  disabled={!transcript}
+                  className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors disabled:opacity-40 cursor-pointer"
+                >
+                  <FileCode className="w-3 h-3" />
+                  SRT Subtitle
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};

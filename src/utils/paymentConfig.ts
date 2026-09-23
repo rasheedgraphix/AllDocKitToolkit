@@ -6,6 +6,7 @@ export interface PaymentConfig {
   jazzcashAccountTitle: string;
   jazzcashAccountNumber: string;
   whatsappNumber: string;
+  supportEmail: string;
   monthlyPricePkr: number;
   monthlyPriceUsd: number;
   annualPricePkr: number;
@@ -22,6 +23,7 @@ export const DEFAULT_PAYMENT_CONFIG: PaymentConfig = {
   jazzcashAccountTitle: 'Nouman Ur Rasheed',
   jazzcashAccountNumber: '0345-5067874',
   whatsappNumber: '923455067874',
+  supportEmail: 'hafiznoumanurrasheed4@gmail.com',
   monthlyPricePkr: 499,
   monthlyPriceUsd: 2.99,
   annualPricePkr: 1999,

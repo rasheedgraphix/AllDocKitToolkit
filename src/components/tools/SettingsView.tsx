@@ -635,11 +635,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div className="flex flex-wrap items-center gap-4">
             <button
               type="button"
-              onClick={() => openExternalUrl('mailto:support@pixdoc.app')}
+              onClick={() => openExternalUrl('mailto:hafiznoumanurrasheed4@gmail.com')}
               className="text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-stone-100 flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Mail className="w-3.5 h-3.5 text-stone-500" />
-              <span>Support: support@pixdoc.app</span>
+              <span>Support: hafiznoumanurrasheed4@gmail.com</span>
             </button>
 
             <button
@@ -648,12 +648,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               className="text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-stone-100 flex items-center gap-1.5 transition-colors cursor-pointer underline"
             >
               <FileText className="w-3.5 h-3.5 text-stone-500" />
-              <span>Privacy Policy</span>
+              <span>Privacy Policy &amp; Terms</span>
             </button>
           </div>
 
           <span className="text-[11px] text-stone-400">
-            PixDoc Toolkit &copy; {new Date().getFullYear()}
+            PixDoc Toolkit &copy; {new Date().getFullYear()} &bull; Built with Privacy-First Architecture
           </span>
         </div>
       </div>
@@ -674,7 +674,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         onClose={() => setShowUpdateModal(false)}
       />
 
-      {/* Privacy Policy Modal */}
+      {/* Comprehensive Privacy Policy Modal */}
       {showPrivacyModal && (
         <div
           role="dialog"
@@ -683,15 +683,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           onClick={() => setShowPrivacyModal(false)}
         >
           <div
-            className="w-full max-w-lg rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-2xl p-6 space-y-4 max-h-[85vh] overflow-y-auto"
+            className="w-full max-w-2xl rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-2xl p-6 space-y-4 max-h-[85vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between border-b border-stone-200 dark:border-stone-800 pb-3">
               <div className="flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                <h3 className="text-base font-bold text-stone-900 dark:text-stone-100">
-                  PixDoc Privacy Policy
-                </h3>
+                <ShieldCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                <div>
+                  <h3 className="text-base font-bold text-stone-900 dark:text-stone-100">
+                    PixDoc Official Privacy Policy &amp; Terms
+                  </h3>
+                  <p className="text-[11px] text-stone-500">Last updated: September 2026 &bull; Strict Zero-Knowledge Privacy</p>
+                </div>
               </div>
               <button
                 type="button"
@@ -699,43 +702,69 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 className="p-1 rounded-lg text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
                 aria-label="Close dialog"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs text-stone-600 dark:text-stone-400 leading-relaxed">
-              <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 font-medium">
-                🔒 Core Principle: PixDoc is engineered as a zero-knowledge, 100% offline desktop and web utility.
+            <div className="space-y-4 text-xs text-stone-600 dark:text-stone-400 leading-relaxed">
+              <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 font-medium">
+                🛡️ <strong>Absolute Privacy Commitment:</strong> PixDoc is engineered as a 100% offline, client-side application. We do not operate remote file-processing servers. Your confidential PDF contracts, financial statements, book scans, photos, audio recordings, and OCR outputs stay strictly inside your local device memory.
               </div>
 
-              <div className="space-y-1">
-                <h4 className="font-bold text-stone-900 dark:text-stone-100">1. Local Device Processing</h4>
-                <p>All PDF manipulations, image conversions, compression routines, and file packaging run strictly within your device's memory. No document or image file is ever transmitted over the network or saved to remote servers.</p>
+              <div className="space-y-1.5">
+                <h4 className="font-bold text-stone-900 dark:text-stone-100 text-sm">1. Local Device File Processing</h4>
+                <p>
+                  Every operation performed in PixDoc—including PDF merging, page splitting, page rotation, image conversion, OCR book scanning, image compression, QR generation, and audio dictation—is executed exclusively within the local browser or Electron sandbox on your CPU/GPU. No document or audio stream is ever uploaded to remote servers.
+                </p>
               </div>
 
-              <div className="space-y-1">
-                <h4 className="font-bold text-stone-900 dark:text-stone-100">2. No Analytics or Profiling</h4>
-                <p>We do not track, profile, or log your document content, filenames, or conversion behaviors. We do not use third-party analytics trackers or advertising SDKs.</p>
+              <div className="space-y-1.5">
+                <h4 className="font-bold text-stone-900 dark:text-stone-100 text-sm">2. No File Tracking, Logging, or Telemetry</h4>
+                <p>
+                  We do not inspect, log, sell, monetize, or transmit your document contents, personal notes, filenames, or conversion history. Conversion history is stored solely inside your local browser storage (IndexedDB/localStorage) on your computer, which you can clear at any time in the Conversion History tab.
+                </p>
               </div>
 
-              <div className="space-y-1">
-                <h4 className="font-bold text-stone-900 dark:text-stone-100">3. Optional Notifications</h4>
-                <p>If enabled, notifications are used solely to deliver software update alerts and product announcements. You can disable them at any time in Settings.</p>
+              <div className="space-y-1.5">
+                <h4 className="font-bold text-stone-900 dark:text-stone-100 text-sm">3. Subscription, License Keys &amp; Payments</h4>
+                <p>
+                  PixDoc provides transparent subscription and lifetime Pro license models. Pro licenses are activated either via cryptographic license keys or authentic secure payment methods (EasyPaisa, JazzCash, Direct Bank Transfer, or International Credit/Debit Card). License validation operates locally with offline fallback support. No sensitive financial credentials or bank PINs are stored on our servers.
+                </p>
               </div>
 
-              <div className="space-y-1">
-                <h4 className="font-bold text-stone-900 dark:text-stone-100">4. Contact &amp; Questions</h4>
-                <p>If you have any questions regarding privacy or software safety, contact us directly at <span className="font-mono text-stone-800 dark:text-stone-200">support@pixdoc.app</span>.</p>
+              <div className="space-y-1.5">
+                <h4 className="font-bold text-stone-900 dark:text-stone-100 text-sm">4. Offline Guarantee &amp; Data Ownership</h4>
+                <p>
+                  You retain 100% full intellectual property and ownership rights of all documents, images, audio transcripts, and Word (.docx) files created or modified with PixDoc. PixDoc functions completely offline without requiring continuous internet connectivity.
+                </p>
+              </div>
+
+              <div className="space-y-1.5 p-3 rounded-xl bg-stone-100 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700">
+                <h4 className="font-bold text-stone-900 dark:text-stone-100 text-sm flex items-center gap-1.5">
+                  <Mail className="w-4 h-4 text-emerald-600" />
+                  5. Official Developer Contact &amp; Support
+                </h4>
+                <p>
+                  If you have inquiries, custom enterprise licensing requests, feature suggestions, or need billing support, contact the official developer directly at:
+                </p>
+                <div className="pt-1">
+                  <a
+                    href="mailto:hafiznoumanurrasheed4@gmail.com"
+                    className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold hover:underline text-xs"
+                  >
+                    hafiznoumanurrasheed4@gmail.com
+                  </a>
+                </div>
               </div>
             </div>
 
-            <div className="pt-2 flex justify-end">
+            <div className="pt-2 flex justify-end border-t border-stone-200 dark:border-stone-800">
               <button
                 type="button"
                 onClick={() => setShowPrivacyModal(false)}
-                className="py-2 px-4 rounded-xl bg-stone-900 hover:bg-stone-800 text-white dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-white text-xs font-semibold transition-colors cursor-pointer"
+                className="py-2.5 px-5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-white text-xs font-semibold transition-colors cursor-pointer shadow-sm"
               >
-                Close
+                I Understand &amp; Agree
               </button>
             </div>
           </div>

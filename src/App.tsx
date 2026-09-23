@@ -19,6 +19,8 @@ import { PdfProtectView } from './components/tools/PdfProtectView';
 import { ImagesToPdfView } from './components/tools/ImagesToPdfView';
 import { ImageConverterView } from './components/tools/ImageConverterView';
 import { ImageResizerView } from './components/tools/ImageResizerView';
+import { BookOcrConverterView } from './components/tools/BookOcrConverterView';
+import { AudioToTextView } from './components/tools/AudioToTextView';
 import { QrStudioView } from './components/tools/QrStudioView';
 import { HistoryView } from './components/tools/HistoryView';
 import { SettingsView } from './components/tools/SettingsView';
@@ -48,6 +50,8 @@ const TOOL_NAMES: Record<ToolId, string> = {
   'images-to-pdf': 'Images to PDF',
   'image-converter': 'Image Converter (PNG, JPG, WEBP, HEIC)',
   'image-compressor': 'Image Compressor & Resizer (-90%)',
+  'book-ocr-converter': 'Book & Doc OCR to Word (.docx)',
+  'audio-to-text': 'Audio to Text & Voice Studio',
   'qr-studio': 'Smart QR Code Studio',
   history: 'Conversion History',
   settings: 'Desktop Settings & Packaging',
@@ -148,12 +152,14 @@ export default function App() {
     };
   }, []);
 
-  // Apply dark mode class to html document
+  // Apply dark mode class and data-theme to html document
   useEffect(() => {
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
+      document.documentElement.setAttribute('data-theme', 'light');
     }
     localStorage.setItem('app_theme', theme);
   }, [theme]);
@@ -171,6 +177,8 @@ export default function App() {
     window.addEventListener('open-upgrade-settings', handleOpenUpgrade);
     return () => window.removeEventListener('open-upgrade-settings', handleOpenUpgrade);
   }, []);
+
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
@@ -206,11 +214,13 @@ export default function App() {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-white text-stone-900 dark:bg-stone-950 dark:text-stone-100 font-sans transition-colors antialiased">
-      {/* Sidebar Navigation */}
+      {/* Sidebar Navigation (Desktop Static + Mobile Drawer) */}
       <Sidebar
         activeTool={activeTool}
         onSelectTool={setActiveTool}
         historyCount={history.length}
+        isOpenMobile={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
       />
 
       {/* Main Content Area */}
@@ -221,9 +231,10 @@ export default function App() {
           onToggleTheme={toggleTheme}
           toolNames={TOOL_NAMES}
           onOpenAuth={openLoginModal}
+          onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
         />
 
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTool}
@@ -262,6 +273,12 @@ export default function App() {
               )}
               {activeTool === 'image-compressor' && (
                 <ImageResizerView onAddToHistory={handleAddToHistory} />
+              )}
+              {activeTool === 'book-ocr-converter' && (
+                <BookOcrConverterView onAddToHistory={handleAddToHistory} />
+              )}
+              {activeTool === 'audio-to-text' && (
+                <AudioToTextView onProcessComplete={handleAddToHistory} />
               )}
               {activeTool === 'qr-studio' && (
                 <QrStudioView onAddToHistory={handleAddToHistory} />

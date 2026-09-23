@@ -6,24 +6,52 @@ let pdfjsCache: any = null;
 async function getPdfJs(): Promise<any> {
   if (pdfjsCache) return pdfjsCache;
   if (typeof window !== 'undefined' && (window as any).pdfjsLib) {
-    pdfjsCache = (window as any).pdfjsLib;
+    const lib = (window as any).pdfjsLib;
+    if (lib.GlobalWorkerOptions && !lib.GlobalWorkerOptions.workerSrc) {
+      lib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+    pdfjsCache = lib;
     return pdfjsCache;
   }
-  try {
-    const importRuntime = new Function('m', 'return import(m)');
-    const pdfjs = await importRuntime('pdfjs-dist');
-    if (pdfjs && pdfjs.GlobalWorkerOptions && !pdfjs.GlobalWorkerOptions.workerSrc) {
-      pdfjs.GlobalWorkerOptions.workerSrc = '';
+
+  // Load via dynamic script tag fallback
+  if (typeof window !== 'undefined') {
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const existing = document.querySelector('script[src*="pdf.min.js"]');
+        if (existing) {
+          existing.addEventListener('load', () => resolve());
+          existing.addEventListener('error', (e) => reject(e));
+          setTimeout(() => resolve(), 500);
+          return;
+        }
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        script.onload = () => {
+          const lib = (window as any).pdfjsLib;
+          if (lib && lib.GlobalWorkerOptions) {
+            lib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          }
+          resolve();
+        };
+        script.onerror = (e) => reject(e);
+        document.head.appendChild(script);
+      });
+
+      if ((window as any).pdfjsLib) {
+        pdfjsCache = (window as any).pdfjsLib;
+        return pdfjsCache;
+      }
+    } catch (e) {
+      console.warn('Dynamic script load error:', e);
     }
-    pdfjsCache = pdfjs;
-    return pdfjs;
-  } catch (err) {
-    console.warn('PDF.js dynamic runtime fallback', err);
-    if (typeof window !== 'undefined' && (window as any).pdfjsLib) {
-      return (window as any).pdfjsLib;
-    }
-    throw new Error('PDF.js rendering engine could not be loaded.');
   }
+
+  if (typeof window !== 'undefined' && (window as any).pdfjsLib) {
+    return (window as any).pdfjsLib;
+  }
+
+  throw new Error('PDF.js rendering engine could not be loaded.');
 }
 
 export interface SplitPdfOptions {
@@ -427,8 +455,12 @@ export async function renderPdfPagesToImages(
   format: 'png' | 'jpeg' = 'png',
   quality: number = 0.92,
   dpiScale: number = 2.0,
-  onProgress?: (progress: number, status: string) => void
+  pageNumbersOrProgress?: number[] | ((progress: number, status: string) => void),
+  onProgressCallback?: (progress: number, status: string) => void
 ): Promise<{ pageNumber: number; blob: Blob; width: number; height: number }[]> {
+  const pageNumbers = Array.isArray(pageNumbersOrProgress) ? pageNumbersOrProgress : undefined;
+  const onProgress = typeof pageNumbersOrProgress === 'function' ? pageNumbersOrProgress : onProgressCallback;
+
   onProgress?.(10, 'Loading PDF document into memory...');
   const arrayBuffer = await file.arrayBuffer();
 
@@ -441,11 +473,16 @@ export async function renderPdfPagesToImages(
 
   const pdfDocument = await loadingTask.promise;
   const numPages = pdfDocument.numPages;
+  const targetPages = pageNumbers && pageNumbers.length > 0
+    ? pageNumbers.filter((p) => p >= 1 && p <= numPages)
+    : Array.from({ length: numPages }, (_, idx) => idx + 1);
+
   const results: { pageNumber: number; blob: Blob; width: number; height: number }[] = [];
 
-  for (let i = 1; i <= numPages; i++) {
+  for (let idx = 0; idx < targetPages.length; idx++) {
+    const i = targetPages[idx];
     onProgress?.(
-      Math.round(15 + (i / numPages) * 75),
+      Math.round(15 + ((idx + 1) / targetPages.length) * 75),
       `Rendering page ${i} of ${numPages} (${format.toUpperCase()})...`
     );
 
@@ -488,7 +525,7 @@ export async function renderPdfPagesToImages(
     });
   }
 
-  onProgress?.(100, 'Finished extracting all PDF pages as images!');
+  onProgress?.(100, 'Finished extracting PDF pages as images!');
   return results;
 }
 

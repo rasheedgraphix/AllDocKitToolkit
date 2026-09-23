@@ -9,6 +9,8 @@ export type ToolId =
   | 'images-to-pdf'
   | 'image-converter'
   | 'image-compressor'
+  | 'book-ocr-converter'
+  | 'audio-to-text'
   | 'qr-studio'
   | 'history'
   | 'settings';

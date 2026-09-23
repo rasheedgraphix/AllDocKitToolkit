@@ -1111,6 +1111,23 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                   </button>
                 </form>
               )}
+
+              {/* Direct Support & Inquiries */}
+              <div className="pt-3 border-t border-stone-200 dark:border-stone-800 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-stone-500">
+                <div className="flex items-center gap-1.5">
+                  <Mail className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Direct Support:</span>
+                  <a
+                    href="mailto:hafiznoumanurrasheed4@gmail.com"
+                    className="text-emerald-600 font-medium hover:underline"
+                  >
+                    hafiznoumanurrasheed4@gmail.com
+                  </a>
+                </div>
+                <div className="text-stone-400">
+                  Instant activation &amp; 100% offline protection
+                </div>
+              </div>
             </>
           )}
         </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sun, Moon, ShieldCheck, User as UserIcon, Sparkles, Crown, AlertCircle, LogIn } from 'lucide-react';
+import { Sun, Moon, ShieldCheck, User as UserIcon, Sparkles, Crown, AlertCircle, LogIn, Menu } from 'lucide-react';
 import { ToolId } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -9,6 +9,7 @@ interface HeaderProps {
   onToggleTheme: () => void;
   toolNames: Record<ToolId, string>;
   onOpenAuth?: () => void;
+  onOpenMobileMenu?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -17,6 +18,7 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleTheme,
   toolNames,
   onOpenAuth,
+  onOpenMobileMenu,
 }) => {
   const {
     user,
@@ -35,13 +37,23 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header
       id="app-header"
-      className="h-16 border-b px-4 sm:px-6 flex items-center justify-between transition-colors bg-white/80 dark:bg-stone-900/80 backdrop-blur border-stone-200 dark:border-stone-800"
+      className="h-16 border-b px-3 sm:px-6 flex items-center justify-between transition-colors bg-white/80 dark:bg-stone-900/80 backdrop-blur border-stone-200 dark:border-stone-800"
     >
-      <div className="flex items-center gap-3">
-        <h1 className="text-base sm:text-lg font-semibold text-stone-900 dark:text-stone-100">
+      <div className="flex items-center gap-2 sm:gap-3">
+        {onOpenMobileMenu && (
+          <button
+            type="button"
+            onClick={onOpenMobileMenu}
+            className="lg:hidden p-2 rounded-xl text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 focus:outline-none cursor-pointer"
+            aria-label="Open navigation menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        )}
+        <h1 className="text-sm sm:text-lg font-semibold text-stone-900 dark:text-stone-100 truncate">
           {toolNames[activeTool] || 'PixDoc - PDF & Image Toolkit'}
         </h1>
-        <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+        <span className="hidden md:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
           <ShieldCheck className="w-3.5 h-3.5" />
           Offline &amp; Private
         </span>

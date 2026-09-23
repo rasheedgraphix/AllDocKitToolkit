@@ -1,8 +1,22 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('app_theme');
+          if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            document.documentElement.setAttribute('data-theme', 'dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.setAttribute('data-theme', 'light');
+          }
+        } catch (e) {}
+      })();
+    </script>
     
     <!-- Primary Page Title & Meta -->
     <title>PixDoc - All-in-One PDF & Image Toolkit | Free Offline Converters & Pro Tools</title>
@@ -31,6 +45,14 @@
 
     <!-- Google Search Console Verification Meta -->
     <meta name="google-site-verification" content="google8624a6900aeb1a2b" />
+
+    <!-- PDF.js CDN Library for Client-side PDF Rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+      if (window.pdfjsLib) {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      }
+    </script>
 
     <!-- OpenGraph / Facebook / WhatsApp Share Card -->
     <meta property="og:type" content="website" />
