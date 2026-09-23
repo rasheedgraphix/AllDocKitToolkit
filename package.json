@@ -2,6 +2,8 @@
   "name": "pixdoc-toolkit",
   "private": true,
   "version": "1.0.0",
+  "description": "PixDoc Toolkit - Professional Offline Image & PDF Studio by Rasheed Graphix",
+  "author": "Hafiz Nouman Rasheed <rasheedgraphix@gmail.com>",
   "type": "module",
   "main": "electron.cjs",
   "scripts": {
@@ -30,12 +32,7 @@
       "public/**/*"
     ],
     "win": {
-      "target": [
-        "nsis",
-        "appx"
-      ],
-      "icon": "public/pixdoc_logo.svg",
-      "publisherName": "Rasheed Graphix"
+      "target": "nsis"
     },
     "nsis": {
       "oneClick": false,
