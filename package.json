@@ -3,14 +3,46 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "main": "electron.cjs",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
     "preview": "vite preview",
     "deploy": "gh-pages -d dist",
+    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:3000 && electron .\"",
+    "electron:build": "vite build && electron-builder --win",
+    "electron:store": "vite build && electron-builder --win appx",
     "tauri": "tauri",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit"
+  },
+  "build": {
+    "appId": "com.rasheedgraphix.pixdoc",
+    "productName": "PixDoc Toolkit",
+    "copyright": "Copyright © 2026 Rasheed Graphix (Hafiz Nouman Rasheed)",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron.cjs",
+      "public/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "appx"
+      ],
+      "icon": "public/pixdoc_logo.svg",
+      "publisherName": "Rasheed Graphix"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "PixDoc"
+    }
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

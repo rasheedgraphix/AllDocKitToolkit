@@ -27,7 +27,7 @@ interface UpgradeModalProps {
   isOpen: boolean;
   onClose: () => void;
   defaultPlan?: 'monthly' | 'annual';
-  type?: 'guest_limit' | 'trial_ended';
+  type?: 'guest_daily_limit' | 'eligible_for_trial' | 'trial_ended' | 'guest_limit';
   onStartTrial?: () => void;
   onSignIn?: () => void;
   openLoginModal?: () => void;
@@ -41,12 +41,19 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
   isOpen,
   onClose,
   defaultPlan = 'annual',
+  type = 'guest_daily_limit',
+  onStartTrial,
+  onSignIn,
   openLoginModal,
   onUpgrade,
   onSuccess,
 }) => {
   const authContext = useAuth();
   const user = authContext?.user;
+  const hasUsedTrial = authContext?.hasUsedTrial;
+  const isTrialActive = authContext?.isTrialActive;
+  const trialDaysLeft = authContext?.trialDaysLeft;
+  const activateFreeTrial = authContext?.activateFreeTrial;
 
   const [paymentConfig, setPaymentConfig] = useState<PaymentConfig>(getPaymentConfig());
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>(defaultPlan);
@@ -361,9 +368,82 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
 
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto space-y-5">
+          {/* Contextual Limit & Free Trial Banner */}
+          {!user ? (
+            <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-start gap-2.5 text-amber-900 dark:text-amber-200">
+                <Sparkles className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-bold text-sm text-stone-900 dark:text-stone-100">
+                    5 Free Daily Operations Used!
+                  </div>
+                  <div className="text-[11px] text-stone-600 dark:text-stone-400 mt-0.5">
+                    Sign in with Google to start your <strong>1-Time 7-Day Free Trial</strong> (Unlimited batch conversions) or upgrade to Pro!
+                  </div>
+                </div>
+              </div>
+              {openLoginModal && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    openLoginModal();
+                  }}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all cursor-pointer whitespace-nowrap shadow-sm flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <span>Start 7-Day Trial</span>
+                </button>
+              )}
+            </div>
+          ) : !hasUsedTrial && !isTrialActive ? (
+            <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs animate-in fade-in">
+              <div className="flex items-start gap-2.5">
+                <Sparkles className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-bold text-sm text-emerald-950 dark:text-emerald-200">
+                    🎁 You are eligible for 7-Day Free Trial!
+                  </div>
+                  <div className="text-[11px] text-emerald-800 dark:text-emerald-400 mt-0.5">
+                    Activate your 1-time 7-day Pro trial now. No credit card required!
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (activateFreeTrial) {
+                    setIsProcessing(true);
+                    const res = await activateFreeTrial();
+                    setIsProcessing(false);
+                    if (res.success) {
+                      onClose();
+                    } else if (res.error) {
+                      setErrorMsg(res.error);
+                    }
+                  }
+                }}
+                disabled={isProcessing}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all cursor-pointer whitespace-nowrap shadow-md flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                <span>{isProcessing ? 'Activating...' : 'Activate 7-Day Trial'}</span>
+              </button>
+            </div>
+          ) : hasUsedTrial && !isTrialActive ? (
+            <div className="p-3 rounded-2xl bg-stone-100 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700 text-xs">
+              <div className="flex items-center gap-2 text-stone-700 dark:text-stone-300">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>
+                  <strong>Free Trial Used:</strong> Your 1-time Free Trial has already been completed on this account. Upgrade to Pro for unlimited operations, or wait until tomorrow for 5 free operations.
+                </span>
+              </div>
+            </div>
+          ) : null}
+
           {/* User Account Lock Indicator */}
-          {user ? (
-            <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-xs">
+          {user && (
+            <div className="p-2.5 rounded-xl bg-stone-50 dark:bg-stone-800/60 border border-stone-200 dark:border-stone-700 flex items-center justify-between text-xs">
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[10px]">
                   {user.displayName?.[0] || user.email?.[0]?.toUpperCase() || 'U'}
@@ -380,27 +460,6 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
               <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 text-[10px] font-extrabold uppercase">
                 Email-Protected
               </span>
-            </div>
-          ) : (
-            <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
-              <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
-                <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
-                <span>
-                  <strong>Tip:</strong> Sign in with Google so your Pro license is securely tied to your Gmail.
-                </span>
-              </div>
-              {openLoginModal && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    openLoginModal();
-                  }}
-                  className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] transition-all cursor-pointer whitespace-nowrap"
-                >
-                  Sign In First
-                </button>
-              )}
             </div>
           )}
 

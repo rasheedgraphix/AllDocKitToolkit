@@ -11,17 +11,24 @@ import {
   syncUserProfile,
   getUserProfile,
   upgradeUserToPro,
+  startUserTrialInFirestore,
   UserProfileData,
 } from '../lib/firebase';
 import {
-  checkConversionAccess,
-  incrementGuestUsage,
-  getGuestUsage,
-  getTrialDaysLeft,
+  DAILY_FREE_LIMIT,
+  TRIAL_DAYS,
+  getDailyFreeUsage,
+  incrementDailyFreeUsage,
+  getRemainingDailyFree,
+  canUseDailyFree,
   isTrialActive as checkTrialActive,
+  getTrialDaysLeft,
+  checkConversionAccess,
 } from '../lib/trial';
 import { AuthModal } from '../components/AuthModal';
 import { UpgradeModal } from '../components/UpgradeModal';
+
+export type UpgradeModalType = 'guest_daily_limit' | 'eligible_for_trial' | 'trial_ended' | 'guest_limit';
 
 interface AuthContextValue {
   user: User | null;
@@ -31,12 +38,17 @@ interface AuthContextValue {
   trialDaysLeft: number;
   isTrialActive: boolean;
   isPro: boolean;
+  hasUsedTrial: boolean;
+  dailyUsage: number;
+  dailyLimit: number;
+  remainingDaily: number;
   guestUsage: number;
   openLoginModal: () => void;
   closeLoginModal: () => void;
-  openUpgradeModal: (type: 'guest_limit' | 'trial_ended') => void;
+  openUpgradeModal: (type: UpgradeModalType) => void;
   closeUpgradeModal: () => void;
   verifyAccessBeforeAction: () => Promise<boolean>;
+  activateFreeTrial: () => Promise<{ success: boolean; error?: string }>;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, pass: string) => Promise<void>;
   signUpWithEmail: (email: string, pass: string, name?: string) => Promise<void>;
@@ -52,25 +64,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfileData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [guestUsage, setGuestUsage] = useState<number>(() => getGuestUsage());
+  const [dailyUsage, setDailyUsage] = useState<number>(() => getDailyFreeUsage());
 
-  // Listen to guest usage updates
+  // Listen to daily usage changes across windows/tabs
   useEffect(() => {
     const handleUsageChange = () => {
-      setGuestUsage(getGuestUsage());
+      setDailyUsage(getDailyFreeUsage());
     };
-    window.addEventListener('pixdoc-guest-usage-updated', handleUsageChange);
-    return () => window.removeEventListener('pixdoc-guest-usage-updated', handleUsageChange);
+    window.addEventListener('pixdoc-daily-usage-updated', handleUsageChange);
+    return () => window.removeEventListener('pixdoc-daily-usage-updated', handleUsageChange);
   }, []);
 
   // Modals state
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [upgradeModal, setUpgradeModal] = useState<{
     isOpen: boolean;
-    type: 'guest_limit' | 'trial_ended';
+    type: UpgradeModalType;
   }>({
     isOpen: false,
-    type: 'guest_limit',
+    type: 'guest_daily_limit',
   });
 
   const refreshUserProfile = useCallback(async (): Promise<UserProfileData | null> => {
@@ -103,40 +115,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const openLoginModal = () => setIsAuthModalOpen(true);
   const closeLoginModal = () => setIsAuthModalOpen(false);
 
-  const openUpgradeModal = (type: 'guest_limit' | 'trial_ended') => {
+  const openUpgradeModal = (type: UpgradeModalType) => {
     setUpgradeModal({ isOpen: true, type });
   };
   const closeUpgradeModal = () => {
     setUpgradeModal((prev) => ({ ...prev, isOpen: false }));
   };
 
-  const handleGuestTrialClick = () => {
-    setUpgradeModal((prev) => ({ ...prev, isOpen: false }));
-    setIsAuthModalOpen(true);
+  /**
+   * Activates 7-Day Free Trial for logged in user (strictly 1-time per account).
+   */
+  const activateFreeTrial = async (): Promise<{ success: boolean; error?: string }> => {
+    const activeUser = user || auth.currentUser;
+    if (!activeUser) {
+      openLoginModal();
+      return { success: false, error: 'Please sign in first.' };
+    }
+
+    const res = await startUserTrialInFirestore(activeUser.uid);
+    if (res.success && res.profile) {
+      setUserProfile(res.profile);
+      closeUpgradeModal();
+      return { success: true };
+    }
+
+    return { success: false, error: res.error || 'Failed to start trial.' };
   };
 
   /**
    * Central gatekeeper function before converting/processing files.
-   * - If guest (no login): allows 1st use, increments usage, returns true.
-   *   On 2nd use: blocks and opens UpgradeModal('guest_limit').
-   * - If logged-in: checks Firestore profile.
-   *   If trial is ended and not Pro: blocks and opens UpgradeModal('trial_ended').
-   *   If active trial or Pro: returns true.
+   * - 5 daily free operations allowed.
+   * - Pro tier & Active trial: unlimited.
+   * - If daily limit (5) reached:
+   *   - Guest -> opens modal to sign in for 7-day trial.
+   *   - Logged in (never had trial) -> opens modal to start 7-day trial.
+   *   - Logged in (already used trial) -> strictly blocked from trial, opens Pro upgrade!
    */
   const verifyAccessBeforeAction = async (): Promise<boolean> => {
     const activeUser = user || auth.currentUser;
     const result = await checkConversionAccess(activeUser);
 
     if (result.allowed) {
-      if (result.isGuest) {
-        const newUsage = incrementGuestUsage();
-        setGuestUsage(newUsage);
+      // If user used free daily quota, increment count
+      if (result.isDailyFree) {
+        const newCount = incrementDailyFreeUsage();
+        setDailyUsage(newCount);
       }
       return true;
     }
 
-    if (result.reason === 'guest_limit') {
-      openUpgradeModal('guest_limit');
+    // Daily limit of 5 exceeded! Open appropriate modal:
+    if (result.reason === 'guest_daily_limit' || result.reason === 'guest_limit') {
+      openUpgradeModal('guest_daily_limit');
+      return false;
+    }
+
+    if (result.reason === 'eligible_for_trial') {
+      openUpgradeModal('eligible_for_trial');
       return false;
     }
 
@@ -145,7 +180,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
 
-    openUpgradeModal(activeUser ? 'trial_ended' : 'guest_limit');
+    openUpgradeModal(activeUser ? 'trial_ended' : 'guest_daily_limit');
     return false;
   };
 
@@ -154,6 +189,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const u = await fbLoginWithGoogle();
       const p = await getUserProfile(u.uid);
       setUserProfile(p);
+      setIsAuthModalOpen(false);
     } catch (err) {
       throw new Error(getFriendlyAuthErrorMessage(err));
     }
@@ -164,6 +200,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const u = await fbLoginWithEmail(email, pass);
       const p = await getUserProfile(u.uid);
       setUserProfile(p);
+      setIsAuthModalOpen(false);
     } catch (err) {
       throw new Error(getFriendlyAuthErrorMessage(err));
     }
@@ -174,6 +211,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const u = await fbRegisterWithEmail(email, pass, name);
       const p = await getUserProfile(u.uid);
       setUserProfile(p);
+      setIsAuthModalOpen(false);
     } catch (err) {
       throw new Error(getFriendlyAuthErrorMessage(err));
     }
@@ -222,6 +260,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user && !isPro && checkTrialActive(userProfile?.trialStart)
   );
   const trialDaysLeft = user ? getTrialDaysLeft(userProfile?.trialStart) : 0;
+  const hasUsedTrial = Boolean(userProfile?.hasUsedTrial || (userProfile?.trialStart && !isTrialActive));
+  const remainingDaily = Math.max(0, DAILY_FREE_LIMIT - dailyUsage);
 
   return (
     <AuthContext.Provider
@@ -233,12 +273,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         trialDaysLeft,
         isTrialActive,
         isPro,
-        guestUsage,
+        hasUsedTrial,
+        dailyUsage,
+        dailyLimit: DAILY_FREE_LIMIT,
+        remainingDaily,
+        guestUsage: dailyUsage,
         openLoginModal,
         closeLoginModal,
         openUpgradeModal,
         closeUpgradeModal,
         verifyAccessBeforeAction,
+        activateFreeTrial,
         signInWithGoogle,
         signInWithEmail,
         signUpWithEmail,
@@ -258,8 +303,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isOpen={upgradeModal.isOpen}
         type={upgradeModal.type}
         onClose={closeUpgradeModal}
-        onStartTrial={handleGuestTrialClick}
-        onSignIn={handleGuestTrialClick}
+        onStartTrial={async () => {
+          if (!user) {
+            closeUpgradeModal();
+            openLoginModal();
+          } else {
+            await activateFreeTrial();
+          }
+        }}
+        onSignIn={() => {
+          closeUpgradeModal();
+          openLoginModal();
+        }}
         openLoginModal={openLoginModal}
         onUpgrade={async (plan) => {
           await upgradePlan(plan);

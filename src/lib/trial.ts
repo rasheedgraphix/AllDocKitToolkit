@@ -1,11 +1,26 @@
 import { User } from 'firebase/auth';
-import { getUserProfile, syncUserProfile, UserProfileData } from './firebase';
+import {
+  getUserProfile,
+  syncUserProfile,
+  startUserTrialInFirestore,
+  UserProfileData,
+} from './firebase';
 
-export const GUEST_STORAGE_KEY = 'pixdoc_guest_usage';
-export const GUEST_LIMIT = 1;
+export const DAILY_FREE_LIMIT = 5;
 export const TRIAL_DAYS = 7;
+export const DAILY_STORAGE_KEY = 'pixdoc_daily_free_usage_v3';
+export const TRIAL_USED_LOCAL_KEY = 'pixdoc_trial_used_accounts_v3';
 
-let inMemoryGuestUsage = 0;
+let inMemoryDailyCount = 0;
+let inMemoryDate = '';
+
+function getTodayKey(): string {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 function safeGetStorage(key: string): string | null {
   try {
@@ -14,7 +29,7 @@ function safeGetStorage(key: string): string | null {
       if (v !== null && v !== undefined && v !== '') return v;
     }
   } catch {
-    // LocalStorage restricted or unavailable
+    // LocalStorage restricted
   }
   try {
     if (typeof sessionStorage !== 'undefined') {
@@ -30,7 +45,7 @@ function safeGetStorage(key: string): string | null {
       if (match && match[2]) return decodeURIComponent(match[2]);
     }
   } catch {
-    // Cookie access restricted
+    // Cookie restricted
   }
   return null;
 }
@@ -55,84 +70,92 @@ function safeSetStorage(key: string, val: string): void {
       document.cookie = `${key}=${encodeURIComponent(val)}; path=/; max-age=31536000; SameSite=Lax`;
     }
   } catch {
-    // Cookie access restricted
+    // Cookie restricted
   }
 }
 
 /**
- * Returns current guest conversions count from storage or memory.
+ * Returns today's free conversion count.
+ * Automatically resets to 0 when date changes.
  */
-export function getGuestUsage(): number {
-  const stored = safeGetStorage(GUEST_STORAGE_KEY);
-  if (stored !== null) {
-    const count = parseInt(stored, 10);
-    if (!isNaN(count)) {
-      inMemoryGuestUsage = Math.max(count, inMemoryGuestUsage);
-      return inMemoryGuestUsage;
+export function getDailyFreeUsage(): number {
+  const today = getTodayKey();
+  if (inMemoryDate !== today) {
+    inMemoryDate = today;
+    inMemoryDailyCount = 0;
+  }
+
+  const raw = safeGetStorage(DAILY_STORAGE_KEY);
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.date === today && typeof parsed.count === 'number') {
+        inMemoryDailyCount = Math.max(inMemoryDailyCount, parsed.count);
+        return inMemoryDailyCount;
+      }
+    } catch {
+      // Fallback
     }
   }
-  return inMemoryGuestUsage;
+
+  return inMemoryDailyCount;
 }
 
 /**
- * Increments guest conversion count across localStorage, sessionStorage, cookies and memory.
+ * Increments today's free conversion count and triggers custom event.
  */
-export function incrementGuestUsage(): number {
-  const current = getGuestUsage();
+export function incrementDailyFreeUsage(): number {
+  const today = getTodayKey();
+  const current = getDailyFreeUsage();
   const updated = current + 1;
-  inMemoryGuestUsage = updated;
-  safeSetStorage(GUEST_STORAGE_KEY, updated.toString());
+  inMemoryDailyCount = updated;
+  inMemoryDate = today;
+
+  safeSetStorage(
+    DAILY_STORAGE_KEY,
+    JSON.stringify({
+      date: today,
+      count: updated,
+    })
+  );
+
   if (typeof window !== 'undefined') {
     window.dispatchEvent(
-      new CustomEvent('pixdoc-guest-usage-updated', { detail: { usage: updated } })
+      new CustomEvent('pixdoc-daily-usage-updated', {
+        detail: { count: updated, remaining: Math.max(0, DAILY_FREE_LIMIT - updated) },
+      })
     );
   }
+
   return updated;
 }
 
 /**
- * Resets guest usage count.
+ * Returns how many free conversions are remaining today.
  */
-export function resetGuestUsage(): void {
-  inMemoryGuestUsage = 0;
-  try {
-    if (typeof localStorage !== 'undefined') localStorage.removeItem(GUEST_STORAGE_KEY);
-  } catch {}
-  try {
-    if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(GUEST_STORAGE_KEY);
-  } catch {}
-  try {
-    if (typeof document !== 'undefined') {
-      document.cookie = `${GUEST_STORAGE_KEY}=; path=/; max-age=0`;
-    }
-  } catch {}
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(
-      new CustomEvent('pixdoc-guest-usage-updated', { detail: { usage: 0 } })
-    );
-  }
+export function getRemainingDailyFree(): number {
+  const used = getDailyFreeUsage();
+  return Math.max(0, DAILY_FREE_LIMIT - used);
 }
 
 /**
- * Checks if a guest is still within the free limit (less than GUEST_LIMIT).
+ * Checks if user still has daily free allowance (less than 5).
  */
-export function canGuestUse(): boolean {
-  return getGuestUsage() < GUEST_LIMIT;
+export function canUseDailyFree(): boolean {
+  return getDailyFreeUsage() < DAILY_FREE_LIMIT;
 }
 
 /**
- * Parses trialStart from Firestore Timestamp, Date, string, or number to timestamp ms.
+ * Parses trialStart timestamp.
  */
-function parseTrialStartTime(trialStart: unknown): number | null {
+export function parseTrialStartTime(trialStart: unknown): number | null {
   if (!trialStart) return null;
-  // Firestore Timestamp with toMillis() or toDate()
   if (typeof (trialStart as { toMillis?: () => number }).toMillis === 'function') {
     return (trialStart as { toMillis: () => number }).toMillis();
   }
   if (typeof (trialStart as { toDate?: () => Date }).toDate === 'function') {
     return (trialStart as { toDate: () => Date }).toDate().getTime();
   }
-  // Firestore object with seconds
   if (typeof (trialStart as { seconds?: number }).seconds === 'number') {
     return (trialStart as { seconds: number }).seconds * 1000;
   }
@@ -154,7 +177,7 @@ function parseTrialStartTime(trialStart: unknown): number | null {
  */
 export function isTrialActive(trialStart: unknown): boolean {
   const startMs = parseTrialStartTime(trialStart);
-  if (!startMs) return true; // If just created or pending serverTimestamp, treat as active
+  if (!startMs) return false;
   const elapsedMs = Date.now() - startMs;
   const trialDurationMs = TRIAL_DAYS * 24 * 60 * 60 * 1000;
   return elapsedMs < trialDurationMs;
@@ -165,7 +188,7 @@ export function isTrialActive(trialStart: unknown): boolean {
  */
 export function getTrialDaysLeft(trialStart: unknown): number {
   const startMs = parseTrialStartTime(trialStart);
-  if (!startMs) return TRIAL_DAYS;
+  if (!startMs) return 0;
   const elapsedMs = Date.now() - startMs;
   const trialDurationMs = TRIAL_DAYS * 24 * 60 * 60 * 1000;
   const remainingMs = trialDurationMs - elapsedMs;
@@ -175,56 +198,82 @@ export function getTrialDaysLeft(trialStart: unknown): number {
 
 export interface AccessCheckResult {
   allowed: boolean;
-  reason?: 'guest_limit' | 'trial_ended';
+  reason?: 'guest_daily_limit' | 'eligible_for_trial' | 'trial_ended' | 'guest_limit';
   isGuest?: boolean;
   isPro?: boolean;
   isTrial?: boolean;
+  isDailyFree?: boolean;
+  remainingDaily?: number;
   daysLeft?: number;
   profile?: UserProfileData | null;
 }
 
 /**
- * Validates whether the current action can proceed:
- * - If not logged in: checks guest limit (1 free conversion).
- * - If logged in: fetches fresh Firestore doc. Allows if 'pro' or trial is within 7 days.
+ * Central Gatekeeper Validation:
+ * 1. Pro users: Unlimited access.
+ * 2. Active Trial users: Unlimited access (up to 7 days).
+ * 3. Free Allowance: 5 free conversions per day for all users!
+ * 4. When 5 daily limit is reached:
+ *    - If Guest: prompted to Sign In to get 7-Day Free Trial.
+ *    - If Logged In (Never used trial): prompted to Start 1-Time 7-Day Free Trial.
+ *    - If Logged In (Trial expired / used): strictly blocked from re-trialling, prompted to Upgrade to Pro!
  */
 export async function checkConversionAccess(user: User | null): Promise<AccessCheckResult> {
-  // 1. Guest user check
-  if (!user) {
-    if (canGuestUse()) {
-      return { allowed: true, isGuest: true };
+  // 1. Check logged-in user specific rules (Pro / Trial)
+  if (user) {
+    const profile = await getUserProfile(user.uid);
+
+    // Pro has unlimited access
+    if (profile?.subscription === 'pro') {
+      return { allowed: true, isPro: true, profile };
     }
-    return { allowed: false, reason: 'guest_limit', isGuest: true };
+
+    // If currently in active 7-day trial
+    if (profile?.trialStart && isTrialActive(profile.trialStart)) {
+      const daysLeft = getTrialDaysLeft(profile.trialStart);
+      return { allowed: true, isTrial: true, daysLeft, profile };
+    }
   }
 
-  // 2. Logged-in user check
-  let profile = await getUserProfile(user.uid);
-  if (!profile || !profile.trialStart) {
-    // If user doc has no trialStart yet, initialize it
-    profile = await syncUserProfile(user);
-  }
-
-  // Pro tier has unlimited access
-  if (profile?.subscription === 'pro') {
-    return { allowed: true, isPro: true, profile };
-  }
-
-  // Check 7-day free trial status
-  const trialValid = isTrialActive(profile?.trialStart);
-  const daysLeft = getTrialDaysLeft(profile?.trialStart);
-
-  if (trialValid) {
+  // 2. Check 5 Free Daily requests
+  if (canUseDailyFree()) {
+    const remaining = getRemainingDailyFree();
     return {
       allowed: true,
-      isTrial: true,
-      daysLeft,
+      isDailyFree: true,
+      remainingDaily: remaining,
+      isGuest: !user,
+    };
+  }
+
+  // 3. Daily limit of 5 is exhausted! Determine next step:
+  if (!user) {
+    return {
+      allowed: false,
+      reason: 'guest_daily_limit',
+      isGuest: true,
+      remainingDaily: 0,
+    };
+  }
+
+  const profile = await getUserProfile(user.uid);
+
+  // If user has never used trial before, they are eligible to start 7-day trial
+  const hasEverUsedTrial = Boolean(profile?.hasUsedTrial || profile?.trialStart);
+  if (!hasEverUsedTrial) {
+    return {
+      allowed: false,
+      reason: 'eligible_for_trial',
+      remainingDaily: 0,
       profile,
     };
   }
 
+  // Strictly 1-time trial per account! Once trial ended, they cannot re-trial
   return {
     allowed: false,
     reason: 'trial_ended',
+    remainingDaily: 0,
     daysLeft: 0,
     profile,
   };

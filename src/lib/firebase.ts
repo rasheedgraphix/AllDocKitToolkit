@@ -58,7 +58,8 @@ export interface UserProfileData {
   createdAt?: unknown;
   lastLoginAt?: unknown;
   trialStart?: unknown;
-  subscription?: 'free_trial' | 'pro' | string;
+  hasUsedTrial?: boolean;
+  subscription?: 'free' | 'free_trial' | 'pro' | string;
   plan?: string;
   upgradedAt?: unknown;
 }
@@ -81,8 +82,9 @@ export async function getUserProfile(uid: string): Promise<UserProfileData | nul
 }
 
 /**
- * Sync user profile to Firestore `/users/{uid}` document
- * Initializes 7-day free trial fields (trialStart, subscription)
+ * Sync user profile to Firestore `/users/{uid}` document.
+ * Initializes default 'free' profile with 5 daily requests.
+ * Preserves 1-time trial history strictly.
  */
 export async function syncUserProfile(user: User): Promise<UserProfileData | null> {
   try {
@@ -90,21 +92,25 @@ export async function syncUserProfile(user: User): Promise<UserProfileData | nul
     const snap = await getDoc(userRef);
 
     if (!snap.exists()) {
-      const newProfile: Record<string, unknown> = {
+      const newProfile = {
         id: user.uid,
         email: user.email || '',
         displayName: user.displayName || user.email?.split('@')[0] || 'User',
         photoURL: user.photoURL || '',
         createdAt: serverTimestamp(),
         lastLoginAt: serverTimestamp(),
-        trialStart: serverTimestamp(),
-        subscription: 'free_trial',
+        hasUsedTrial: false,
+        subscription: 'free' as const,
       };
       await setDoc(userRef, newProfile);
       return {
-        ...newProfile,
-        trialStart: new Date(),
-      } as UserProfileData;
+        id: user.uid,
+        email: user.email || '',
+        displayName: user.displayName || user.email?.split('@')[0] || 'User',
+        photoURL: user.photoURL || '',
+        hasUsedTrial: false,
+        subscription: 'free',
+      };
     } else {
       const data = snap.data() as UserProfileData;
       const updates: Record<string, unknown> = {
@@ -113,24 +119,88 @@ export async function syncUserProfile(user: User): Promise<UserProfileData | nul
         photoURL: user.photoURL || data?.photoURL || '',
       };
 
-      // If user doc already exists but has no trialStart, set it now
-      if (!data?.trialStart) {
-        updates.trialStart = serverTimestamp();
-      }
-      if (!data?.subscription) {
-        updates.subscription = 'free_trial';
+      // Check if user had an active trial that expired (> 7 days)
+      if (data.trialStart) {
+        let startMs = 0;
+        const ts = data.trialStart as { toMillis?: () => number; seconds?: number } | number | string | Date;
+        if (typeof ts === 'object' && ts && 'toMillis' in ts && typeof ts.toMillis === 'function') {
+          startMs = ts.toMillis();
+        } else if (typeof ts === 'object' && ts && 'seconds' in ts && typeof ts.seconds === 'number') {
+          startMs = ts.seconds * 1000;
+        } else if (ts instanceof Date) {
+          startMs = ts.getTime();
+        } else if (typeof ts === 'number') {
+          startMs = ts;
+        } else if (typeof ts === 'string') {
+          startMs = new Date(ts).getTime();
+        }
+
+        const elapsedMs = Date.now() - startMs;
+        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+        if (elapsedMs >= sevenDaysMs && data.subscription === 'free_trial') {
+          updates.subscription = 'free';
+          updates.hasUsedTrial = true;
+        }
       }
 
       await setDoc(userRef, updates, { merge: true });
       return {
         ...data,
         ...updates,
-        trialStart: data?.trialStart || new Date(),
       } as UserProfileData;
     }
   } catch (error) {
     console.warn('Could not sync user profile to Firestore (may be offline):', error);
     return null;
+  }
+}
+
+/**
+ * Activates the 1-time 7-Day Free Trial for a user in Firestore.
+ * Strictly checks that the user has NEVER used a trial before.
+ */
+export async function startUserTrialInFirestore(uid: string): Promise<{ success: boolean; error?: string; profile?: UserProfileData }> {
+  try {
+    const userRef = doc(db, 'users', uid);
+    const snap = await getDoc(userRef);
+    if (!snap.exists()) {
+      return { success: false, error: 'User profile not found.' };
+    }
+
+    const data = snap.data() as UserProfileData;
+
+    // Strict check: if user already used trial or trialStart exists, reject!
+    if (data.hasUsedTrial || data.trialStart) {
+      return {
+        success: false,
+        error: 'You have already used your 1-time Free Trial on this account.',
+      };
+    }
+
+    if (data.subscription === 'pro') {
+      return { success: false, error: 'You are already a Pro member.' };
+    }
+
+    const updates = {
+      subscription: 'free_trial',
+      trialStart: serverTimestamp(),
+      hasUsedTrial: true,
+    };
+
+    await setDoc(userRef, updates, { merge: true });
+
+    const updatedProfile: UserProfileData = {
+      ...data,
+      subscription: 'free_trial',
+      trialStart: new Date(),
+      hasUsedTrial: true,
+    };
+
+    return { success: true, profile: updatedProfile };
+  } catch (err) {
+    console.error('Failed to start trial in Firestore:', err);
+    return { success: false, error: 'Failed to activate trial. Please try again.' };
   }
 }
 

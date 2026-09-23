@@ -225,7 +225,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               ? license.isTrial
                 ? 'Pro Trial Active'
                 : 'Pro Member'
-              : 'Free Tier: 3 conversions/day'}
+              : 'Free Tier: 5 free operations/day (Resets Daily)'}
           </span>
         </div>
 
