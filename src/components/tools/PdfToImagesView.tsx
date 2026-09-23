@@ -127,11 +127,10 @@ export const PdfToImagesView: React.FC<PdfToImagesViewProps> = ({ onAddToHistory
       {!selectedFile ? (
         <DropZone
           onFilesSelected={handleFileSelected}
-          accept=".pdf"
-          maxFiles={1}
-          icon={FileImage}
+          acceptedFormats={['.pdf']}
+          multiple={false}
           title="Drop your PDF here to convert to images"
-          description="Supports single & multi-page PDF documents. 100% private in-browser rendering."
+          subtitle="Supports single & multi-page PDF documents. 100% private in-browser rendering."
         />
       ) : (
         <div className="space-y-6">

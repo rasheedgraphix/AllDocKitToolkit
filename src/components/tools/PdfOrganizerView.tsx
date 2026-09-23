@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { DropZone } from '../DropZone';
 import { ProgressBar } from '../ProgressBar';
-import { formatBytes, downloadBlob } from '../../utils/fileHelpers';
+import { formatBytes, downloadBlob, getPdfInfo } from '../../utils/fileHelpers';
 import {
   generatePdfPageThumbnails,
   organizePdfPages,
@@ -56,8 +56,18 @@ export const PdfOrganizerView: React.FC<PdfOrganizerViewProps> = ({ onAddToHisto
         }));
         setPages(initialPages);
       } catch (err: any) {
-        console.error('Failed to load page previews', err);
-        alert('Could not render page previews. Loading default page placeholders.');
+        console.warn('Thumbnail generation fallback to basic structure:', err);
+        const info = await getPdfInfo(file);
+        const fallbackPages: PageOrganizeItem[] = Array.from(
+          { length: info.pageCount },
+          (_, idx) => ({
+            originalIndex: idx,
+            pageNumber: idx + 1,
+            rotation: 0,
+            isDeleted: false,
+          })
+        );
+        setPages(fallbackPages);
       } finally {
         setIsLoadingThumbnails(false);
       }
@@ -167,11 +177,10 @@ export const PdfOrganizerView: React.FC<PdfOrganizerViewProps> = ({ onAddToHisto
       {!selectedFile ? (
         <DropZone
           onFilesSelected={handleFileSelected}
-          accept=".pdf"
-          maxFiles={1}
-          icon={Layers}
+          acceptedFormats={['.pdf']}
+          multiple={false}
           title="Drop your PDF here to organize pages"
-          description="Drag & drop, rotate, reorder, or delete pages in real-time."
+          subtitle="Drag & drop, rotate, reorder, or delete pages in real-time."
         />
       ) : (
         <div className="space-y-6">

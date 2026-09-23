@@ -1,9 +1,13 @@
 import { PDFDocument, rgb, degrees, StandardFonts } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Ensure PDF.js worker is properly set
-if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+// Ensure PDF.js worker is properly set for Vite / Web browsers
+if (typeof window !== 'undefined') {
+  try {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+  } catch (e) {
+    console.warn('Could not set pdfjs workerSrc:', e);
+  }
 }
 
 export interface SplitPdfOptions {
@@ -439,9 +443,10 @@ export async function renderPdfPagesToImages(
     canvas.height = Math.floor(viewport.height);
 
     // Render page
-    const renderContext = {
-      canvasContext: ctx as any,
+    const renderContext: any = {
+      canvasContext: ctx,
       viewport: viewport,
+      canvas: canvas,
     };
 
     await (page.render(renderContext) as any).promise;
@@ -498,10 +503,13 @@ export async function generatePdfPageThumbnails(
     canvas.width = Math.floor(viewport.width);
     canvas.height = Math.floor(viewport.height);
 
-    await (page.render({
-      canvasContext: ctx as any,
+    const renderParams: any = {
+      canvasContext: ctx,
       viewport: viewport,
-    }) as any).promise;
+      canvas: canvas,
+    };
+
+    await (page.render(renderParams) as any).promise;
 
     thumbnails.push({
       pageNumber: i,

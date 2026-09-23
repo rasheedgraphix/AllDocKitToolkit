@@ -125,11 +125,10 @@ export const PdfWatermarkView: React.FC<PdfWatermarkViewProps> = ({ onAddToHisto
       {!selectedFile ? (
         <DropZone
           onFilesSelected={handleFileSelected}
-          accept=".pdf"
-          maxFiles={1}
-          icon={Stamp}
+          acceptedFormats={['.pdf']}
+          multiple={false}
           title="Drop your PDF here to watermark"
-          description="Stamp 'DRAFT', 'CONFIDENTIAL', your company name, or page numbers."
+          subtitle="Stamp 'DRAFT', 'CONFIDENTIAL', your company name, or page numbers."
         />
       ) : (
         <div className="space-y-6">

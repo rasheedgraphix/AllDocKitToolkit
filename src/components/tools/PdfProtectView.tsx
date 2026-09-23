@@ -103,11 +103,10 @@ export const PdfProtectView: React.FC<PdfProtectViewProps> = ({ onAddToHistory }
       {!selectedFile ? (
         <DropZone
           onFilesSelected={handleFileSelected}
-          accept=".pdf"
-          maxFiles={1}
-          icon={Lock}
+          acceptedFormats={['.pdf']}
+          multiple={false}
           title="Drop your PDF here to protect"
-          description="Enforce security headers, author restrictions, and tamper protection."
+          subtitle="Enforce security headers, author restrictions, and tamper protection."
         />
       ) : (
         <div className="space-y-6">
