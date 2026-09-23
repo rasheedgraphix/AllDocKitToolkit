@@ -1,0 +1,15 @@
+# Robots.txt for PixDoc Toolkit
+# Allow all search engine crawlers (Google, Bing, Yahoo, DuckDuckGo, Yandex)
+
+User-agent: *
+Allow: /
+
+# Google Search Console Crawler
+User-agent: Googlebot
+Allow: /
+
+User-agent: Googlebot-Image
+Allow: /
+
+# Sitemap Index
+Sitemap: https://rasheedgraphix.github.io/PixDoc/sitemap.xml

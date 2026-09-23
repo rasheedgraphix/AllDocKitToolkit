@@ -87,11 +87,11 @@ export default function App() {
   const [toastNotification, setToastNotification] = useState<AppNotification | null>(null);
 
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [upgradePlan, setUpgradePlan] = useState<'monthly' | 'annual' | 'lifetime'>('annual');
+  const [upgradePlan, setUpgradePlan] = useState<'monthly' | 'annual'>('annual');
 
   useEffect(() => {
     const handleOpenUpgrade = (e: any) => {
-      const plan = e.detail?.plan || 'annual';
+      const plan = e.detail?.plan === 'monthly' ? 'monthly' : 'annual';
       setUpgradePlan(plan);
       setShowUpgradeModal(true);
     };

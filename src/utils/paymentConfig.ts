@@ -10,11 +10,9 @@ export interface PaymentConfig {
   monthlyPriceUsd: number;
   annualPricePkr: number;
   annualPriceUsd: number;
-  lifetimePricePkr: number;
-  lifetimePriceUsd: number;
 }
 
-const PAYMENT_CONFIG_KEY = 'pixdoc_payment_config_v3';
+const PAYMENT_CONFIG_KEY = 'pixdoc_payment_config_v4';
 
 export const DEFAULT_PAYMENT_CONFIG: PaymentConfig = {
   easypaisaAccountTitle: 'Nouman Ur Rasheed',
@@ -28,8 +26,6 @@ export const DEFAULT_PAYMENT_CONFIG: PaymentConfig = {
   monthlyPriceUsd: 2.99,
   annualPricePkr: 1999,
   annualPriceUsd: 12.99,
-  lifetimePricePkr: 3499,
-  lifetimePriceUsd: 24.99,
 };
 
 export function getPaymentConfig(): PaymentConfig {
