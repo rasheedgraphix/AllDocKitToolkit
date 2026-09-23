@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import QRCode from 'qrcode';
+import { generateQrDataUrl } from '../../utils/qrGenerator';
 import {
   QrCode,
   Download,
@@ -64,8 +64,9 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ onAddToHistory }) =>
 
   // Generate QR code whenever payload or styling changes
   useEffect(() => {
+    let isMounted = true;
     const payload = getPayload();
-    QRCode.toDataURL(payload, {
+    generateQrDataUrl(payload, {
       errorCorrectionLevel: errorCorrection,
       margin: 2,
       width: 600,
@@ -74,8 +75,14 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ onAddToHistory }) =>
         light: bgColor,
       },
     })
-      .then((url) => setQrDataUrl(url))
+      .then((url) => {
+        if (isMounted) setQrDataUrl(url);
+      })
       .catch((err) => console.error('QR Generation failed', err));
+
+    return () => {
+      isMounted = false;
+    };
   }, [
     qrType,
     url,

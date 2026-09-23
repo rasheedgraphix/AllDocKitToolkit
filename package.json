@@ -9,9 +9,10 @@
     "build": "vite build",
     "preview": "vite preview",
     "deploy": "gh-pages -d dist",
-    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:3000 && electron .\"",
-    "electron:build": "vite build && electron-builder --win",
-    "electron:store": "vite build && electron-builder --win appx",
+    "electron:start": "vite build && npx electron .",
+    "electron:dev": "npx concurrently \"vite\" \"npx wait-on http://localhost:3000 && npx electron .\"",
+    "electron:build": "vite build && npx electron-builder --win",
+    "electron:store": "vite build && npx electron-builder --win appx",
     "tauri": "tauri",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit"
