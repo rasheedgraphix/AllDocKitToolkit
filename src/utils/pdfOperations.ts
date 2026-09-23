@@ -1,30 +1,28 @@
 import { PDFDocument, rgb, degrees, StandardFonts } from 'pdf-lib';
 
-// Safe dynamic loader for PDF.js to support 100% offline bundles without bundler resolution errors
+// Safe dynamic loader for PDF.js that prevents Vite/Rolldown build-time module resolution errors
 let pdfjsCache: any = null;
 
 async function getPdfJs(): Promise<any> {
   if (pdfjsCache) return pdfjsCache;
+  if (typeof window !== 'undefined' && (window as any).pdfjsLib) {
+    pdfjsCache = (window as any).pdfjsLib;
+    return pdfjsCache;
+  }
   try {
-    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    const importRuntime = new Function('m', 'return import(m)');
+    const pdfjs = await importRuntime('pdfjs-dist');
     if (pdfjs && pdfjs.GlobalWorkerOptions && !pdfjs.GlobalWorkerOptions.workerSrc) {
       pdfjs.GlobalWorkerOptions.workerSrc = '';
     }
     pdfjsCache = pdfjs;
     return pdfjs;
-  } catch {
-    try {
-      const pdfjs = await import('pdfjs-dist');
-      pdfjsCache = pdfjs;
-      return pdfjs;
-    } catch (err) {
-      console.warn('PDF.js dynamic import fallback', err);
-      // Global window fallback if present
-      if (typeof window !== 'undefined' && (window as any).pdfjsLib) {
-        return (window as any).pdfjsLib;
-      }
-      throw new Error('PDF.js rendering engine could not be initialized.');
+  } catch (err) {
+    console.warn('PDF.js dynamic runtime fallback', err);
+    if (typeof window !== 'undefined' && (window as any).pdfjsLib) {
+      return (window as any).pdfjsLib;
     }
+    throw new Error('PDF.js rendering engine could not be loaded.');
   }
 }
 
@@ -723,8 +721,9 @@ export async function protectPdfDocument(
   onProgress?.(70, 'Encrypting PDF streams with AES-256 encryption...');
   let encryptedBytes: Uint8Array = rawBytes;
   try {
-    const encryptMod = await import('@pdfsmaller/pdf-encrypt');
-    const encryptFn = encryptMod.encryptPDF || (encryptMod as any).default;
+    const importRuntime = new Function('m', 'return import(m)');
+    const encryptMod = await importRuntime('@pdfsmaller/pdf-encrypt');
+    const encryptFn = encryptMod.encryptPDF || encryptMod.default || encryptMod;
     if (encryptFn) {
       encryptedBytes = await encryptFn(rawBytes, password, {
         algorithm: 'AES-256',
