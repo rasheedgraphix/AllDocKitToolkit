@@ -1,5 +1,6 @@
 import { PDFDocument, rgb, degrees, StandardFonts } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
+import { encryptPDF } from '@pdfsmaller/pdf-encrypt';
 
 // Ensure PDF.js worker is properly set for Vite / Web browsers
 if (typeof window !== 'undefined') {
@@ -681,26 +682,39 @@ export async function addWatermarkAndPageNumbers(
 }
 
 /**
- * Protect PDF with user encryption or metadata lockdown
+ * Protect PDF with real AES-256 standard password encryption
  */
 export async function protectPdfDocument(
   file: File,
+  password: string,
+  options?: {
+    allowPrinting?: boolean;
+    allowCopying?: boolean;
+  },
   onProgress?: (progress: number, status: string) => void
 ): Promise<{ blob: Blob; pageCount: number }> {
-  onProgress?.(20, 'Analyzing PDF encryption structure...');
+  onProgress?.(15, 'Reading PDF document...');
   const arrayBuffer = await file.arrayBuffer();
   const pdfDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+  const pageCount = pdfDoc.getPageCount();
 
-  // Update document metadata and lock
-  pdfDoc.setTitle(`${file.name.replace('.pdf', '')} (Protected)`);
-  pdfDoc.setProducer('PixDoc Security Suite');
-  pdfDoc.setCreator('PixDoc Pro Local Engine');
-  pdfDoc.setModificationDate(new Date());
+  onProgress?.(40, 'Compiling document payload...');
+  const rawBytes = await pdfDoc.save({ useObjectStreams: true });
 
-  onProgress?.(80, 'Applying security metadata and finalizing...');
-  const pdfBytes = await pdfDoc.save({ useObjectStreams: true });
-  const blob = new Blob([pdfBytes as Uint8Array<ArrayBuffer>], { type: 'application/pdf' });
+  onProgress?.(70, 'Encrypting PDF streams with AES-256 encryption...');
+  const encryptedBytes = await encryptPDF(rawBytes, password, {
+    algorithm: 'AES-256',
+    ownerPassword: password,
+    allowPrinting: options?.allowPrinting !== false,
+    allowHighQualityPrint: options?.allowPrinting !== false,
+    allowCopying: options?.allowCopying !== false,
+    allowModifying: false,
+    allowAnnotating: false,
+    allowFillingForms: true,
+  });
 
-  onProgress?.(100, 'PDF protection completed!');
-  return { blob, pageCount: pdfDoc.getPageCount() };
+  const blob = new Blob([encryptedBytes as Uint8Array<ArrayBuffer>], { type: 'application/pdf' });
+
+  onProgress?.(100, 'Password protection applied successfully!');
+  return { blob, pageCount };
 }
