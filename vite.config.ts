@@ -15,6 +15,9 @@ export default defineConfig(({ command }) => {
       },
       dedupe: ['react', 'react-dom'],
     },
+    build: {
+      chunkSizeWarningLimit: 4000,
+    },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modifyâfile watching is disabled to prevent flickering during agent edits.

@@ -1,14 +1,31 @@
 import { PDFDocument, rgb, degrees, StandardFonts } from 'pdf-lib';
-import * as pdfjsLib from 'pdfjs-dist';
-import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { encryptPDF } from '@pdfsmaller/pdf-encrypt';
 
-// Ensure PDF.js worker is properly bundled locally for 100% OFFLINE execution
-if (typeof window !== 'undefined') {
+// Safe dynamic loader for PDF.js to support 100% offline bundles without bundler resolution errors
+let pdfjsCache: any = null;
+
+async function getPdfJs(): Promise<any> {
+  if (pdfjsCache) return pdfjsCache;
   try {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
-  } catch (e) {
-    console.warn('Could not set local pdfjs workerSrc, using fallback:', e);
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    if (pdfjs && pdfjs.GlobalWorkerOptions && !pdfjs.GlobalWorkerOptions.workerSrc) {
+      pdfjs.GlobalWorkerOptions.workerSrc = '';
+    }
+    pdfjsCache = pdfjs;
+    return pdfjs;
+  } catch {
+    try {
+      const pdfjs = await import('pdfjs-dist');
+      pdfjsCache = pdfjs;
+      return pdfjs;
+    } catch (err) {
+      console.warn('PDF.js dynamic import fallback', err);
+      // Global window fallback if present
+      if (typeof window !== 'undefined' && (window as any).pdfjsLib) {
+        return (window as any).pdfjsLib;
+      }
+      throw new Error('PDF.js rendering engine could not be initialized.');
+    }
   }
 }
 
@@ -418,6 +435,7 @@ export async function renderPdfPagesToImages(
   onProgress?.(10, 'Loading PDF document into memory...');
   const arrayBuffer = await file.arrayBuffer();
 
+  const pdfjsLib = await getPdfJs();
   // Load document using pdfjs
   const loadingTask = pdfjsLib.getDocument({
     data: new Uint8Array(arrayBuffer),
@@ -456,7 +474,7 @@ export async function renderPdfPagesToImages(
     const mimeType = format === 'png' ? 'image/png' : 'image/jpeg';
     const blob: Blob = await new Promise((resolve, reject) => {
       canvas.toBlob(
-        (b) => {
+        (b: Blob | null) => {
           if (b) resolve(b);
           else reject(new Error(`Failed to render page ${i} to image`));
         },
@@ -485,6 +503,7 @@ export async function generatePdfPageThumbnails(
   onProgress?: (p: number) => void
 ): Promise<{ pageNumber: number; thumbnailUrl: string; width: number; height: number }[]> {
   const arrayBuffer = await file.arrayBuffer();
+  const pdfjsLib = await getPdfJs();
   const loadingTask = pdfjsLib.getDocument({
     data: new Uint8Array(arrayBuffer),
   });
