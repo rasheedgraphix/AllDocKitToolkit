@@ -12,36 +12,50 @@ export const firebaseConfig = {
   measurementId: "G-THUK36TGFS"
 };
 
-export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+export const app = getApps().length === 0? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
-export async function syncUserProfile(user) {
-  const userRef = doc(db, 'users', user.uid);
-  const snap = await getDoc(userRef);
-  if (!snap.exists()) {
-    await setDoc(userRef, { id: user.uid, email: user.email || '', displayName: user.displayName || 'User', photoURL: user.photoURL || '', createdAt: serverTimestamp(), lastLoginAt: serverTimestamp() });
-  } else {
-    await setDoc(userRef, { lastLoginAt: serverTimestamp() }, { merge: true });
-  }
+// --- YEH FUNCTION MISSING THA ---
+export function getFriendlyAuthErrorMessage(error: any): string {
+  const code = error?.code || "";
+  if (code.includes("auth/invalid-email")) return "Invalid email address.";
+  if (code.includes("auth/user-not-found") || code.includes("auth/wrong-password") || code.includes("auth/invalid-credential")) return "Wrong email or password.";
+  if (code.includes("auth/email-already-in-use")) return "This email is already registered.";
+  if (code.includes("auth/weak-password")) return "Password should be at least 6 characters.";
+  if (code.includes("auth/unauthorized-domain")) return "This domain is not authorized. Please add rasheedgraphix.github.io in Firebase authorized domains.";
+  if (code.includes("auth/popup-closed-by-user")) return "Popup closed. Please try again.";
+  return error?.message || "Something went wrong. Please try again.";
+}
+
+export async function syncUserProfile(user: any) {
+  try {
+    const userRef = doc(db, 'users', user.uid);
+    const snap = await getDoc(userRef);
+    if (!snap.exists()) {
+      await setDoc(userRef, { id: user.uid, email: user.email || '', displayName: user.displayName || user.email?.split('@')[0] || 'User', photoURL: user.photoURL || '', createdAt: serverTimestamp(), lastLoginAt: serverTimestamp() });
+    } else {
+      await setDoc(userRef, { lastLoginAt: serverTimestamp() }, { merge: true });
+    }
+  } catch (e) { console.warn(e); }
 }
 export async function loginWithGoogle() {
   const result = await signInWithPopup(auth, googleProvider);
   await syncUserProfile(result.user);
   return result.user;
 }
-export async function loginWithEmail(email, pass) {
+export async function loginWithEmail(email: string, pass: string) {
   const credential = await signInWithEmailAndPassword(auth, email.trim(), pass);
   await syncUserProfile(credential.user);
   return credential.user;
 }
-export async function registerWithEmail(email, pass, displayName) {
+export async function registerWithEmail(email: string, pass: string, displayName?: string) {
   const credential = await createUserWithEmailAndPassword(auth, email.trim(), pass);
   if (displayName?.trim()) { await updateProfile(credential.user, { displayName: displayName.trim() }); }
   await syncUserProfile(credential.user);
   return credential.user;
 }
 export async function logoutUser() { await signOut(auth); }
-export async function sendResetPassword(email) { await sendPasswordResetEmail(auth, email.trim()); }
+export async function sendResetPassword(email: string) { await sendPasswordResetEmail(auth, email.trim()); }
