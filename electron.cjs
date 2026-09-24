@@ -10,7 +10,7 @@ function createWindow() {
     minWidth: 960,
     minHeight: 640,
     title: 'AllDocKit - All-in-One PDF & Document Toolkit',
-    icon: path.join(__dirname, 'public/alldockit_logo.svg'),
+    icon: path.join(__dirname, 'public/logo_300x300.png'),
     backgroundColor: '#0c0a09',
     show: false,
     autoHideMenuBar: true,

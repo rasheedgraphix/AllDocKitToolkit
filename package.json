@@ -27,12 +27,14 @@
     "directories": {
       "output": "dist-appx"
     },
+    "icon": "public/icon.ico",
     "files": [
       "dist/**/*",
       "electron.cjs",
       "public/**/*"
     ],
     "win": {
+      "icon": "public/icon.ico",
       "target": [
         {
           "target": "appx",
@@ -92,6 +94,8 @@
     "electron": "^33.2.1",
     "electron-builder": "^25.1.8",
     "gh-pages": "^6.3.0",
+    "png-to-ico": "^3.0.2",
+    "sharp": "^0.35.4",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2"
