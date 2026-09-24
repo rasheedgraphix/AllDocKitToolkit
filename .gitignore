@@ -1,7 +1,11 @@
 node_modules/
+build/
 dist/
 dist-electron/
 dist-appx/
-build/
+dist-tauri/
+coverage/
+.DS_Store
 *.log
 .env*
+!.env.example
