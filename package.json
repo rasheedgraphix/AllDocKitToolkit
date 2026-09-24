@@ -25,7 +25,7 @@
     "productName": "AllDocKit Toolkit",
     "copyright": "Copyright 2026 Rasheed Graphix (Hafiz Nouman Rasheed)",
     "directories": {
-      "output": "dist-electron"
+      "output": "dist-appx"
     },
     "files": [
       "dist/**/*",
