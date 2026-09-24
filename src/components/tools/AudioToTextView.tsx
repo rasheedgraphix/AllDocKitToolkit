@@ -26,7 +26,8 @@ import {
 } from 'lucide-react';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
 import { checkLicense } from '../../utils/license';
-import { transcribeAudio, getClientApiKey, setClientApiKey } from '../../utils/aiService';
+import { transcribeAudio, cleanAndReconstructText, getClientApiKey, setClientApiKey } from '../../utils/aiService';
+import { ApiKeyModal } from '../common/ApiKeyModal';
 
 interface AudioToTextViewProps {
   onProcessComplete?: (historyItem: any) => void;
@@ -59,6 +60,8 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
   const [selectedLang, setSelectedLang] = useState<string>('ur-PK');
   const [copied, setCopied] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string>('');
+  const [showApiKeyModal, setShowApiKeyModal] = useState<boolean>(false);
+  const [isFixingText, setIsFixingText] = useState<boolean>(false);
 
   // Live Speech Recognition State
   const [isListening, setIsListening] = useState<boolean>(false);
@@ -643,6 +646,14 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
                   <Headphones className="w-4 h-4 text-emerald-600" />
                   Audio File Transcriber
                 </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowApiKeyModal(true)}
+                  className="px-2 py-0.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 rounded-lg text-[10px] font-bold cursor-pointer flex items-center gap-1"
+                >
+                  <Sparkles className="w-3 h-3 text-emerald-600" />
+                  API Key
+                </button>
               </div>
 
               <div>
@@ -948,6 +959,26 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
+                      onClick={async () => {
+                        if (!transcript) return;
+                        setIsFixingText(true);
+                        try {
+                          const fixed = await cleanAndReconstructText(transcript, selectedLang);
+                          if (fixed && fixed.trim()) setTranscript(fixed);
+                        } finally {
+                          setIsFixingText(false);
+                        }
+                      }}
+                      disabled={isFixingText}
+                      className="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer border border-emerald-500/30 transition-all disabled:opacity-50"
+                      title="AI Fixes typos, Urdu spelling, and formatting"
+                    >
+                      <Sparkles className={`w-3.5 h-3.5 text-emerald-600 ${isFixingText ? 'animate-spin' : ''}`} />
+                      {isFixingText ? 'Fixing...' : '✨ AI Proofread'}
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={handleCopy}
                       className="px-2.5 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-medium flex items-center gap-1.5 cursor-pointer"
                     >
@@ -1045,6 +1076,15 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
           </div>
         </div>
       </div>
+
+      {/* API Key Modal */}
+      <ApiKeyModal
+        isOpen={showApiKeyModal}
+        onClose={() => setShowApiKeyModal(false)}
+        onSave={() => {
+          setStatusMessage('AI API Key saved successfully!');
+        }}
+      />
     </div>
   );
 };

@@ -164,3 +164,48 @@ Strict Instructions:
 
   throw new Error('OCR service could not process the page via AI.');
 }
+
+/**
+ * Reconstruct & Clean Broken Urdu / Arabic OCR Text
+ */
+export async function cleanAndReconstructText(rawText: string, language: string = 'Urdu'): Promise<string> {
+  // Method 1: Server proxy
+  try {
+    const res = await fetch('/api/clean-ocr-text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rawText, language }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.cleanedText) return data.cleanedText.trim();
+    }
+  } catch {}
+
+  // Method 2: Client SDK
+  const clientKey = getClientApiKey();
+  if (clientKey) {
+    try {
+      const ai = new GoogleGenAI({ apiKey: clientKey });
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                text: `Proofread and reconstruct the following OCR text into 100% crystal-clear standard Urdu & Arabic textbook formatting. Fix broken Nastaliq letters, typos, and fragmented words. Return only the cleaned text:
+
+${rawText}`,
+              },
+            ],
+          },
+        ],
+      });
+      if (response.text) return response.text.trim();
+    } catch {}
+  }
+
+  return rawText;
+}

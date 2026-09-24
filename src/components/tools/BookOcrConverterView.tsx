@@ -31,7 +31,8 @@ import {
   exportToHtml,
   cleanBookOcrText,
 } from '../../utils/ocrDocExporter';
-import { performAiOcr } from '../../utils/aiService';
+import { performAiOcr, cleanAndReconstructText, getClientApiKey } from '../../utils/aiService';
+import { ApiKeyModal } from '../common/ApiKeyModal';
 import { HistoryItem } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -81,10 +82,27 @@ export const BookOcrConverterView: React.FC<BookOcrConverterViewProps> = ({ onAd
   // Result state
   const [extractedText, setExtractedText] = useState<string>('');
   const [isCopied, setIsCopied] = useState(false);
+  const [isRepairingText, setIsRepairingText] = useState(false);
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
 
   // Find and replace
   const [findWord, setFindWord] = useState('');
   const [replaceWord, setReplaceWord] = useState('');
+
+  const handleAiRepairText = async () => {
+    if (!extractedText) return;
+    setIsRepairingText(true);
+    try {
+      const repaired = await cleanAndReconstructText(extractedText, 'Urdu');
+      if (repaired && repaired.trim()) {
+        setExtractedText(repaired);
+      }
+    } catch (err) {
+      console.error('Repair error:', err);
+    } finally {
+      setIsRepairingText(false);
+    }
+  };
 
   // Clean up URL object on unmount
   useEffect(() => {
@@ -500,6 +518,21 @@ export const BookOcrConverterView: React.FC<BookOcrConverterViewProps> = ({ onAd
                 </select>
               </div>
 
+              {/* Free AI Engine & Key Setup */}
+              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5 font-bold text-amber-700 dark:text-amber-300">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Gemini 2.5 AI Ultra-OCR</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowApiKeyModal(true)}
+                  className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-bold cursor-pointer"
+                >
+                  API Key
+                </button>
+              </div>
+
               {/* PDF Page Range Selector */}
               {isPdf && (
                 <div className="pt-2 border-t border-stone-200 dark:border-stone-800">
@@ -649,6 +682,16 @@ export const BookOcrConverterView: React.FC<BookOcrConverterViewProps> = ({ onAd
                   {extractedText && (
                     <div className="flex items-center gap-2">
                       <button
+                        onClick={handleAiRepairText}
+                        disabled={isRepairingText}
+                        className="px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer border border-amber-500/30 transition-all disabled:opacity-50"
+                        title="AI Reconstructs broken Nastaliq words and restores 100% textbook accuracy"
+                      >
+                        <Sparkles className={`w-3.5 h-3.5 text-amber-600 ${isRepairingText ? 'animate-spin' : ''}`} />
+                        {isRepairingText ? 'Reconstructing Text...' : '✨ AI Fix & Proofread'}
+                      </button>
+
+                      <button
                         onClick={handleAutoCleanText}
                         className="px-2.5 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 text-xs font-medium flex items-center gap-1.5 cursor-pointer"
                         title="Fix broken line-breaks and punctuation"
@@ -792,6 +835,14 @@ export const BookOcrConverterView: React.FC<BookOcrConverterViewProps> = ({ onAd
           </div>
         </div>
       )}
+      {/* API Key Modal for GitHub Pages & Offline Use */}
+      <ApiKeyModal
+        isOpen={showApiKeyModal}
+        onClose={() => setShowApiKeyModal(false)}
+        onSave={() => {
+          setStatusText('AI Key updated successfully!');
+        }}
+      />
     </div>
   );
 };
