@@ -2,7 +2,7 @@
   "name": "alldockit",
   "private": true,
   "version": "1.0.0",
-  "description": "AllDocKit - Professional Offline Document, Image & PDF Studio by Rasheed Graphix",
+  "description": "AllDocKit - Professional Offline Document Image and PDF Studio by Rasheed Graphix",
   "author": "Hafiz Nouman Rasheed <rasheedgraphix@gmail.com>",
   "type": "module",
   "main": "electron.cjs",
@@ -23,7 +23,7 @@
   "build": {
     "appId": "com.rasheedgraphix.alldockit",
     "productName": "AllDocKit Toolkit",
-    "copyright": "Copyright © 2026 Rasheed Graphix (Hafiz Nouman Rasheed)",
+    "copyright": "Copyright 2026 Rasheed Graphix (Hafiz Nouman Rasheed)",
     "directories": {
       "output": "dist-electron"
     },
