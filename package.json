@@ -35,10 +35,21 @@
     "win": {
       "target": [
         {
+          "target": "appx",
+          "arch": ["x64"]
+        },
+        {
           "target": "nsis",
           "arch": ["x64"]
         }
       ]
+    },
+    "appx": {
+      "applicationId": "AllDocKitToolkit",
+      "identityName": "RasheedGraphix.AllDocKit",
+      "publisherDisplayName": "RasheedGraphix",
+      "publisher": "CN=3A9DCC04-8828-4172-8554-421A85179DB3",
+      "backgroundColor": "#090D16"
     },
     "nsis": {
       "oneClick": false,
