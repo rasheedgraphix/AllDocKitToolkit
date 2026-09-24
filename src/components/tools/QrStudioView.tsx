@@ -27,7 +27,7 @@ type QrType = 'link' | 'text' | 'wifi' | 'email' | 'phone';
 export const QrStudioView: React.FC<QrStudioViewProps> = ({ onAddToHistory }) => {
   const { verifyAccessBeforeAction } = useAuth();
   const [qrType, setQrType] = useState<QrType>('link');
-  const [url, setUrl] = useState('https://rasheedgraphix.github.io/alldockit/');
+  const [url, setUrl] = useState('https://rasheedgraphix.github.io/AllDocKitToolkit/');
   const [textContent, setTextContent] = useState('');
   const [wifiSsid, setWifiSsid] = useState('');
   const [wifiPassword, setWifiPassword] = useState('');
@@ -48,7 +48,7 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ onAddToHistory }) =>
   const getPayload = (): string => {
     switch (qrType) {
       case 'link':
-        return url.trim() || 'https://rasheedgraphix.github.io/alldockit/';
+        return url.trim() || 'https://rasheedgraphix.github.io/AllDocKitToolkit/';
       case 'text':
         return textContent.trim() || 'Welcome to AllDocKit';
       case 'wifi':

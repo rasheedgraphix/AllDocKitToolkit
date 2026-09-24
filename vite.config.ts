@@ -5,7 +5,7 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(({ command }) => {
   return {
-    base: command === 'serve' ? '/' : (process.env.GITHUB_PAGES ? '/PixDoc/' : './'),
+    base: command === 'serve' ? '/' : './',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
