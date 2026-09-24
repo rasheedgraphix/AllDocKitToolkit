@@ -46,7 +46,7 @@
     },
     "appx": {
       "applicationId": "AllDocKitToolkit",
-      "identityName": "RasheedGraphix.AllDocKit",
+      "identityName": "RasheedGraphix.AllDocKitToolkit",
       "publisherDisplayName": "RasheedGraphix",
       "publisher": "CN=3A9DCC04-8828-4172-8554-421A85179DB3",
       "backgroundColor": "#090D16"
