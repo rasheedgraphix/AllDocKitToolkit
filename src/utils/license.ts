@@ -9,7 +9,7 @@ export interface License {
 }
 
 const memoryStore: Record<string, string> = {};
-const EMAIL_KEY_BINDINGS_STORAGE = 'pixdoc_email_key_bindings_v1';
+const EMAIL_KEY_BINDINGS_STORAGE = 'alldockit_email_key_bindings_v1';
 
 function safeGetItem(key: string): string | null {
   try {
@@ -61,7 +61,7 @@ export function maskEmail(email: string): string {
  */
 function getKeyBindings(): Record<string, { ownerEmail: string; plan: 'monthly' | 'annual'; createdAt: string }> {
   try {
-    const raw = safeGetItem(EMAIL_KEY_BINDINGS_STORAGE);
+    const raw = safeGetItem(EMAIL_KEY_BINDINGS_STORAGE) || safeGetItem('pixdoc_email_key_bindings_v1');
     if (raw) return JSON.parse(raw);
   } catch {
     // ignore
@@ -85,10 +85,10 @@ export function bindKeyToEmail(key: string, email: string, plan: 'monthly' | 'an
 }
 
 /**
- * Generates an official, verifiable PixDoc Pro license key
+ * Generates an official, verifiable AllDocKit Pro license key
  */
 export function generateLicenseKey(plan: 'monthly' | 'annual'): string {
-  const prefix = plan === 'annual' ? 'PX-ANN' : 'PX-MNT';
+  const prefix = plan === 'annual' ? 'ADK-ANN' : 'ADK-MNT';
   const randomPart1 = Math.random().toString(36).substring(2, 6).toUpperCase();
   const randomPart2 = Math.random().toString(36).substring(2, 6).toUpperCase();
   const timeCode = (Date.now() % 10000).toString().padStart(4, '7');
@@ -96,7 +96,7 @@ export function generateLicenseKey(plan: 'monthly' | 'annual'): string {
 }
 
 export function checkLicense(): License {
-  const saved = safeGetItem('pixdoc_license');
+  const saved = safeGetItem('alldockit_license') || safeGetItem('pixdoc_license');
   if (saved) {
     try {
       const parsed: License = JSON.parse(saved);
@@ -104,7 +104,7 @@ export function checkLicense(): License {
         const isExpired = new Date(parsed.expiryDate).getTime() < Date.now();
         if (isExpired) {
           const freeLicense: License = { isPro: false, plan: 'free', expiryDate: null };
-          safeSetItem('pixdoc_license', JSON.stringify(freeLicense));
+          safeSetItem('alldockit_license', JSON.stringify(freeLicense));
           return freeLicense;
         }
       }
@@ -127,11 +127,11 @@ export function checkLicense(): License {
 }
 
 export function isTrialUsed(): boolean {
-  return safeGetItem('pixdoc_trial_used') === 'true';
+  return safeGetItem('alldockit_trial_used') === 'true' || safeGetItem('pixdoc_trial_used') === 'true';
 }
 
 export function startFreeTrial(): boolean {
-  if (safeGetItem('pixdoc_trial_used') === 'true') {
+  if (isTrialUsed()) {
     return false;
   }
   const expiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
@@ -143,9 +143,13 @@ export function startFreeTrial(): boolean {
     licenseKey: 'TRIAL-7DAYS-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
     activatedAt: new Date().toISOString(),
   };
+  safeSetItem('alldockit_license', JSON.stringify(license));
   safeSetItem('pixdoc_license', JSON.stringify(license));
+  safeSetItem('alldockit_trial_used', 'true');
   safeSetItem('pixdoc_trial_used', 'true');
-  window.dispatchEvent(new Event('license-updated'));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('license-updated'));
+  }
   return true;
 }
 
@@ -175,8 +179,11 @@ export function setTestLicense(plan: 'monthly' | 'annual', customKey?: string, o
     activatedAt: new Date().toISOString(),
   };
 
+  safeSetItem('alldockit_license', JSON.stringify(license));
   safeSetItem('pixdoc_license', JSON.stringify(license));
-  window.dispatchEvent(new Event('license-updated'));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('license-updated'));
+  }
   return key;
 }
 
@@ -230,6 +237,9 @@ export function activateLicenseWithKey(
 }
 
 export function clearLicense() {
+  safeRemoveItem('alldockit_license');
   safeRemoveItem('pixdoc_license');
-  window.dispatchEvent(new Event('license-updated'));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('license-updated'));
+  }
 }

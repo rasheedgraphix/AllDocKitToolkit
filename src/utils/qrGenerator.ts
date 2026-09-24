@@ -117,7 +117,7 @@ export async function generateQrDataUrl(
   const darkColor = options.color?.dark || '#000000';
   const lightColor = options.color?.light || '#ffffff';
 
-  const matrix = createQRMatrix(text || 'PixDoc');
+  const matrix = createQRMatrix(text || 'AllDocKit');
   const matrixSize = matrix.length;
   const totalModules = matrixSize + marginModules * 2;
   const moduleSize = width / totalModules;

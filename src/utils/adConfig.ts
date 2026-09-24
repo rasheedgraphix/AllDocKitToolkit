@@ -25,12 +25,12 @@ export const DEFAULT_AD_CONFIG: AdConfiguration = {
   adsterraNativeBannerScriptUrl: 'https://pl31470377.profitableratecpmnetwork.com/334df57deaa678914b68f34c371139e5/invoke.js',
   adsterraSocialBarScriptUrl: 'https://pl31470378.profitableratecpmnetwork.com/62/54/a6/6254a6d819901f84761c6589e0dcd4ad.js',
   adsterraPopunderScriptUrl: '', // POPUNDER PERMANENTLY DISABLED
-  adsterraDirectLinkUrl: 'https://rasheedgraphix.github.io/PixDoc/',
+  adsterraDirectLinkUrl: 'https://rasheedgraphix.github.io/alldockit/',
 
-  customPromoTitle: 'PixDoc Pro — Zero Ads & Unlimited Batch Speed',
-  customPromoSubtitle: 'Upgrade to PixDoc Pro for lifetime ad-free processing.',
+  customPromoTitle: 'AllDocKit Pro — Zero Ads & Unlimited Batch Speed',
+  customPromoSubtitle: 'Upgrade to AllDocKit Pro for lifetime ad-free processing.',
   customPromoButtonText: 'Upgrade to Pro',
-  customPromoUrl: 'https://rasheedgraphix.github.io/PixDoc/',
+  customPromoUrl: 'https://rasheedgraphix.github.io/alldockit/',
 };
 
 export function getAdConfig(): AdConfiguration {

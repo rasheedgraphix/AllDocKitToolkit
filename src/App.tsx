@@ -16,11 +16,12 @@ import { PdfToImagesView } from './components/tools/PdfToImagesView';
 import { PdfWatermarkView } from './components/tools/PdfWatermarkView';
 import { PdfCompressorView } from './components/tools/PdfCompressorView';
 import { PdfProtectView } from './components/tools/PdfProtectView';
+import { HtmlToPdfView } from './components/tools/HtmlToPdfView';
+import { PdfToHtmlView } from './components/tools/PdfToHtmlView';
 import { ImagesToPdfView } from './components/tools/ImagesToPdfView';
 import { ImageConverterView } from './components/tools/ImageConverterView';
 import { ImageResizerView } from './components/tools/ImageResizerView';
-import { BookOcrConverterView } from './components/tools/BookOcrConverterView';
-import { AudioToTextView } from './components/tools/AudioToTextView';
+import { TextToSpeechView } from './components/tools/TextToSpeechView';
 import { QrStudioView } from './components/tools/QrStudioView';
 import { HistoryView } from './components/tools/HistoryView';
 import { SettingsView } from './components/tools/SettingsView';
@@ -47,11 +48,12 @@ const TOOL_NAMES: Record<ToolId, string> = {
   'pdf-watermark': 'PDF Watermark & Page Numbering',
   'pdf-compressor': 'PDF Compressor',
   'pdf-protect': 'PDF Password Protect & Lock',
+  'html-to-pdf': 'HTML to PDF Converter (Offline)',
+  'pdf-to-html': 'PDF to HTML Converter (Offline)',
   'images-to-pdf': 'Images to PDF',
   'image-converter': 'Image Converter (PNG, JPG, WEBP, HEIC)',
   'image-compressor': 'Image Compressor & Resizer (-90%)',
-  'book-ocr-converter': 'Book & Doc OCR to Word (.docx)',
-  'audio-to-text': 'Audio to Text & Voice Studio',
+  'text-to-speech': 'Text to Speech & Voice Reader (Offline)',
   'qr-studio': 'Smart QR Code Studio',
   history: 'Conversion History',
   settings: 'Desktop Settings & Packaging',
@@ -140,7 +142,7 @@ export default function App() {
     const sampleTimer = setTimeout(() => {
       if (localStorage.getItem('notifications_enabled') === 'true') {
         emitInAppNotification({
-          title: 'PixDoc Toolkit',
+          title: 'AllDocKit Toolkit',
           body: 'All new PDF to Images, Page Organizer, Watermark & QR Code tools are now ready!',
         });
       }
@@ -265,6 +267,12 @@ export default function App() {
               {activeTool === 'pdf-protect' && (
                 <PdfProtectView onAddToHistory={handleAddToHistory} />
               )}
+              {activeTool === 'html-to-pdf' && (
+                <HtmlToPdfView onAddToHistory={handleAddToHistory} />
+              )}
+              {activeTool === 'pdf-to-html' && (
+                <PdfToHtmlView onAddToHistory={handleAddToHistory} />
+              )}
               {activeTool === 'images-to-pdf' && (
                 <ImagesToPdfView onAddToHistory={handleAddToHistory} />
               )}
@@ -274,11 +282,8 @@ export default function App() {
               {activeTool === 'image-compressor' && (
                 <ImageResizerView onAddToHistory={handleAddToHistory} />
               )}
-              {activeTool === 'book-ocr-converter' && (
-                <BookOcrConverterView onAddToHistory={handleAddToHistory} />
-              )}
-              {activeTool === 'audio-to-text' && (
-                <AudioToTextView onProcessComplete={handleAddToHistory} />
+              {activeTool === 'text-to-speech' && (
+                <TextToSpeechView onProcessComplete={handleAddToHistory} />
               )}
               {activeTool === 'qr-studio' && (
                 <QrStudioView onAddToHistory={handleAddToHistory} />

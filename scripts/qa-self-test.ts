@@ -206,12 +206,12 @@ async function runTests() {
   try {
     const hasPlaceholder = GITHUB_REPO_OWNER.includes('YOUR_USERNAME');
     const isRasheedGraphix = GITHUB_REPO_OWNER === 'rasheedgraphix';
-    const isPixDoc = GITHUB_REPO_NAME === 'PixDoc';
+    const isRepoValid = GITHUB_REPO_NAME === 'AllDocKit' || (GITHUB_REPO_NAME as string) === 'PixDoc';
 
     record(
       'Store Compliance: No Placeholder in Updater',
       'Compliance',
-      !hasPlaceholder && isRasheedGraphix && isPixDoc,
+      !hasPlaceholder && isRasheedGraphix && isRepoValid,
       `Repo configured as ${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME} (Version: ${CURRENT_APP_VERSION})`
     );
 
@@ -322,9 +322,9 @@ async function runTests() {
     const tauriJson = JSON.parse(tauriContent);
 
     const validTauri =
-      tauriJson.productName === 'PixDoc' &&
+      (tauriJson.productName === 'AllDocKit' || tauriJson.productName === 'PixDoc') &&
       tauriJson.version === '1.0.0' &&
-      tauriJson.identifier === 'com.pixdoc.toolkit' &&
+      (tauriJson.identifier === 'com.alldockit.toolkit' || tauriJson.identifier === 'com.pixdoc.toolkit') &&
       !tauriContent.includes('YOUR_USERNAME');
 
     record(

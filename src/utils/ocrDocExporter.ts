@@ -192,7 +192,7 @@ ${cleanText}
  * Export to Clean Markdown (.md)
  */
 export function exportToMarkdown(text: string, docTitle: string = 'Scanned Document'): Blob {
-  const content = `# ${docTitle}\n\n*Extracted via PixDoc OCR Studio*\n\n---\n\n${text}\n`;
+  const content = `# ${docTitle}\n\n*Extracted via AllDocKit OCR Studio*\n\n---\n\n${text}\n`;
   return new Blob([content], { type: 'text/markdown;charset=utf-8' });
 }
 
@@ -241,7 +241,7 @@ export function exportToHtml(text: string, docTitle: string = 'Scanned Document'
 </head>
 <body>
   <div class="paper">
-    <span class="badge">PixDoc Extracted Document</span>
+    <span class="badge">AllDocKit Extracted Document</span>
     <h1>${docTitle}</h1>
     <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 24px 0;"/>
     <div>
@@ -283,7 +283,7 @@ export async function exportToPdf(text: string, docTitle: string = 'Scanned Docu
   y -= 30;
 
   // Subtitle
-  page.drawText('Extracted and formatted with PixDoc Toolkit', {
+  page.drawText('Extracted and formatted with AllDocKit Toolkit', {
     x: margin,
     y: y,
     size: 9,

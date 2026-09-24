@@ -14,9 +14,11 @@ import {
   Lock,
   QrCode,
   Sparkles,
-  BookOpen,
-  Mic,
+  Volume2,
+  FileCode,
+  FileText,
   X,
+  Crown,
 } from 'lucide-react';
 import { ToolId } from '../types';
 import { PixDocLogo } from './PixDocLogo';
@@ -65,6 +67,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'pdf-merger', label: 'PDF Merger', icon: Files },
     { id: 'pdf-splitter', label: 'PDF Splitter', icon: Scissors },
     {
+      id: 'html-to-pdf',
+      label: 'HTML to PDF',
+      icon: FileCode,
+      badge: 'NEW',
+      badgeColor: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
+    },
+    {
+      id: 'pdf-to-html',
+      label: 'PDF to HTML',
+      icon: FileText,
+      badge: 'NEW',
+      badgeColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
+    },
+    {
       id: 'pdf-organizer',
       label: 'Organize & Rotate',
       icon: Layers,
@@ -95,17 +111,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const imageTools: NavItem[] = [
     {
-      id: 'book-ocr-converter',
-      label: 'Book OCR to Word',
-      icon: BookOpen,
-      badge: 'NEW PRO',
-      badgeColor: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
-    },
-    {
-      id: 'audio-to-text',
-      label: 'Audio to Text & Voice',
-      icon: Mic,
-      badge: 'NEW',
+      id: 'text-to-speech',
+      label: 'Text to Speech (Voice)',
+      icon: Volume2,
+      badge: 'OFFLINE',
       badgeColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
     },
     { id: 'images-to-pdf', label: 'Images to PDF', icon: FileImage },
@@ -179,13 +188,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <PixDocLogo size={36} />
               <div>
                 <h2 className="text-sm font-bold tracking-tight text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
-                  <span>PixDoc</span>
+                  <span>AllDocKit</span>
                   <span className="text-[9px] px-1 py-0.5 rounded font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                     100% FREE
                   </span>
                 </h2>
                 <p className="text-[11px] text-stone-500 dark:text-stone-400">
-                  PDF & Image Toolkit
+                  All-in-One Document Kit
                 </p>
               </div>
             </div>
@@ -321,6 +330,46 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {/* Conditional Online Sidebar Ad / Sponsor */}
             <AdBanner slotType="sidebar" />
           </div>
+
+          {/* Pro Upgrade Callout in Sidebar */}
+          {!isPro && (
+            <div className="pt-2">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-amber-500/15 via-emerald-500/10 to-teal-500/15 border border-amber-500/30 text-stone-900 dark:text-stone-100 shadow-xs">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-amber-700 dark:text-amber-400">
+                    <Crown className="w-3.5 h-3.5 text-amber-500" />
+                    <span>AllDocKit Pro</span>
+                  </div>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-amber-500 text-white font-black tracking-wide">
+                    PRO
+                  </span>
+                </div>
+                <p className="text-[10px] text-stone-600 dark:text-stone-400 mb-2 leading-tight">
+                  Unlimited operations, zero ads, batch tools. EasyPaisa / Card.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('open-upgrade-modal', { detail: { plan: 'annual' } }));
+                    if (onCloseMobile) onCloseMobile();
+                  }}
+                  className="w-full py-1.5 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <span>Upgrade to Pro</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {isPro && (
+            <div className="pt-2">
+              <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 flex items-center gap-2 text-xs font-bold">
+                <Crown className="w-4 h-4 text-amber-400 shrink-0" />
+                <span className="truncate">AllDocKit Pro Activated</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Security & Offline Badge Footer */}
@@ -329,7 +378,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <Shield className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
             <div className="text-[11px] leading-tight text-stone-600 dark:text-stone-400">
               <span className="font-semibold text-stone-900 dark:text-stone-200 block mb-0.5">
-                PixDoc - 100% Free & Local
+                AllDocKit - 100% Free & Local
               </span>
               Zero upload fees. All file processing runs right in your browser.
             </div>

@@ -1,8 +1,8 @@
 {
-  "name": "pixdoc-toolkit",
+  "name": "alldockit",
   "private": true,
   "version": "1.0.0",
-  "description": "PixDoc Toolkit - Professional Offline Image & PDF Studio by Rasheed Graphix",
+  "description": "AllDocKit - Professional Offline Document, Image & PDF Studio by Rasheed Graphix",
   "author": "Hafiz Nouman Rasheed <rasheedgraphix@gmail.com>",
   "type": "module",
   "main": "electron.cjs",
@@ -21,8 +21,8 @@
     "lint": "tsc --noEmit"
   },
   "build": {
-    "appId": "com.rasheedgraphix.pixdoc",
-    "productName": "PixDoc Toolkit",
+    "appId": "com.rasheedgraphix.alldockit",
+    "productName": "AllDocKit Toolkit",
     "copyright": "Copyright © 2026 Rasheed Graphix (Hafiz Nouman Rasheed)",
     "directories": {
       "output": "dist-electron"
@@ -40,7 +40,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "PixDoc"
+      "shortcutName": "AllDocKit"
     }
   },
   "dependencies": {
@@ -53,6 +53,8 @@
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "firebase": "^12.19.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
     "jszip": "^3.10.2",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",

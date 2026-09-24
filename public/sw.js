@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pixdoc-v1.0.1';
+const CACHE_NAME = 'alldockit-v1.0.0';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

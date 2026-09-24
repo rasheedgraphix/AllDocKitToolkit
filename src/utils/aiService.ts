@@ -1,7 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 
 /**
- * Universal AI Service for PixDoc
+ * Universal AI Service for AllDocKit
  * Handles Audio Transcription & Book/Document OCR both via backend server proxy (/api/*)
  * and directly on client-side (e.g. for GitHub Pages static hosting).
  */
@@ -10,7 +10,7 @@ export function getClientApiKey(): string {
   const envKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (import.meta as any).env?.GEMINI_API_KEY || '';
   if (envKey) return envKey;
   try {
-    const customKey = localStorage.getItem('pixdoc_gemini_key');
+    const customKey = localStorage.getItem('alldockit_gemini_key') || localStorage.getItem('pixdoc_gemini_key');
     if (customKey) return customKey.trim();
   } catch {}
   return '';
@@ -18,6 +18,7 @@ export function getClientApiKey(): string {
 
 export function setClientApiKey(key: string): void {
   try {
+    localStorage.setItem('alldockit_gemini_key', key.trim());
     localStorage.setItem('pixdoc_gemini_key', key.trim());
   } catch {}
 }

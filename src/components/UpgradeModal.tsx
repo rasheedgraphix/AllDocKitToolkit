@@ -152,14 +152,14 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
         ? 'EasyPaisa Wallet'
         : 'Bank IBAN Transfer';
 
-    const activeEmail = user?.email || customerEmail || 'guest@pixdoc.app';
+    const activeEmail = user?.email || customerEmail || 'guest@alldockit.app';
 
     const message = encodeURIComponent(
-      `Assalam-o-Alaikum Nouman Bhai! I want to activate PixDoc Pro.\n\n` +
+      `Assalam-o-Alaikum Nouman Bhai! I want to activate AllDocKit Pro.\n\n` +
       `📌 Plan: ${planInfo.label} (Rs. ${planInfo.pkr})\n` +
       `💳 Method: ${methodTitle}\n` +
       `📧 Gmail: ${activeEmail}\n` +
-      `👤 Sender Name: ${senderName || cardHolder || 'PixDoc User'}\n` +
+      `👤 Sender Name: ${senderName || cardHolder || 'AllDocKit User'}\n` +
       `🔢 TID / Payment Ref: ${trxId || 'Sent via App'}\n\n` +
       `Please check my payment screenshot attached below and issue my Pro License Key. Thank you!`
     );
@@ -172,12 +172,12 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
     const activeEmail = user?.email || customerEmail || 'Locked to Account';
     const textContent =
       `=========================================\n` +
-      `   PIXDOC PRO OFFICIAL LICENSE CERTIFICATE\n` +
+      `  ALLDOCKIT PRO OFFICIAL LICENSE CERTIFICATE\n` +
       `=========================================\n\n` +
       `License Key   : ${activatedKey}\n` +
       `Plan          : ${selectedPlan === 'annual' ? 'Annual Pro (1 Year)' : 'Monthly Pro (30 Days)'}\n` +
       `Locked Email  : ${activeEmail} (Exclusive to this Gmail)\n` +
-      `Customer Name : ${senderName || cardHolder || 'PixDoc Pro Customer'}\n` +
+      `Customer Name : ${senderName || cardHolder || 'AllDocKit Pro Customer'}\n` +
       `Issue Date    : ${new Date().toLocaleDateString()}\n` +
       `Payment Ref   : ${trxId || 'Direct Card Gateway'}\n` +
       `Status        : ACTIVE (100% Ad-Free & Unlimited)\n\n` +
@@ -190,7 +190,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `PixDoc-Pro-License-${activatedKey}.txt`;
+    a.download = `AllDocKit-Pro-License-${activatedKey}.txt`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -354,7 +354,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
               <Crown className="w-5 h-5 text-amber-300" />
             </div>
             <div>
-              <h3 className="text-base font-bold">Upgrade to PixDoc Pro</h3>
+              <h3 className="text-base font-bold">Upgrade to AllDocKit Pro</h3>
               <p className="text-xs text-emerald-100">100% Ad-Free, High-Speed & Unlimited Batch Tools</p>
             </div>
           </div>
@@ -470,7 +470,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
               </div>
               <div>
                 <h4 className="text-lg font-bold text-stone-900 dark:text-stone-100">
-                  🎉 PixDoc Pro Activated Successfully!
+                  🎉 AllDocKit Pro Activated Successfully!
                 </h4>
                 <p className="text-xs text-stone-600 dark:text-stone-400 mt-1 max-w-sm mx-auto">
                   {activationMessage}
@@ -535,7 +535,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                   }}
                   className="w-full sm:w-auto py-2.5 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all cursor-pointer shadow-md"
                 >
-                  Start Using PixDoc Pro
+                  Start Using AllDocKit Pro
                 </button>
               </div>
             </div>
@@ -1076,7 +1076,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                   <div className="space-y-1">
                     <h5 className="text-xs font-bold text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
                       <KeyRound className="w-4 h-4 text-amber-500" />
-                      <span>Have an official PixDoc Pro License Key?</span>
+                      <span>Have an official AllDocKit Pro License Key?</span>
                     </h5>
                     <p className="text-[11px] text-stone-500">
                       Enter your key below. It will be verified against your registered Gmail ({user?.email || customerEmail || 'your email'}).

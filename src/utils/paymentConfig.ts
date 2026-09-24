@@ -13,7 +13,7 @@ export interface PaymentConfig {
   annualPriceUsd: number;
 }
 
-const PAYMENT_CONFIG_KEY = 'pixdoc_payment_config_v4';
+const PAYMENT_CONFIG_KEY = 'alldockit_payment_config_v4';
 
 export const DEFAULT_PAYMENT_CONFIG: PaymentConfig = {
   easypaisaAccountTitle: 'Nouman Ur Rasheed',

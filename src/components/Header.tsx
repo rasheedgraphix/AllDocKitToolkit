@@ -51,7 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         )}
         <h1 className="text-sm sm:text-lg font-semibold text-stone-900 dark:text-stone-100 truncate">
-          {toolNames[activeTool] || 'PixDoc - PDF & Image Toolkit'}
+          {toolNames[activeTool] || 'AllDocKit - Document & PDF Toolkit'}
         </h1>
         <span className="hidden md:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
           <ShieldCheck className="w-3.5 h-3.5" />

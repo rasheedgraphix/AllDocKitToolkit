@@ -8,8 +8,8 @@ import {
 
 export const DAILY_FREE_LIMIT = 5;
 export const TRIAL_DAYS = 7;
-export const DAILY_STORAGE_KEY = 'pixdoc_daily_free_usage_v3';
-export const TRIAL_USED_LOCAL_KEY = 'pixdoc_trial_used_accounts_v3';
+export const DAILY_STORAGE_KEY = 'alldockit_daily_free_usage_v3';
+export const TRIAL_USED_LOCAL_KEY = 'alldockit_trial_used_accounts_v3';
 
 let inMemoryDailyCount = 0;
 let inMemoryDate = '';
@@ -120,6 +120,11 @@ export function incrementDailyFreeUsage(): number {
   );
 
   if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent('alldockit-daily-usage-updated', {
+        detail: { count: updated, remaining: Math.max(0, DAILY_FREE_LIMIT - updated) },
+      })
+    );
     window.dispatchEvent(
       new CustomEvent('pixdoc-daily-usage-updated', {
         detail: { count: updated, remaining: Math.max(0, DAILY_FREE_LIMIT - updated) },

@@ -27,7 +27,7 @@ type QrType = 'link' | 'text' | 'wifi' | 'email' | 'phone';
 export const QrStudioView: React.FC<QrStudioViewProps> = ({ onAddToHistory }) => {
   const { verifyAccessBeforeAction } = useAuth();
   const [qrType, setQrType] = useState<QrType>('link');
-  const [url, setUrl] = useState('https://rasheedgraphix.github.io/PixDoc/');
+  const [url, setUrl] = useState('https://rasheedgraphix.github.io/alldockit/');
   const [textContent, setTextContent] = useState('');
   const [wifiSsid, setWifiSsid] = useState('');
   const [wifiPassword, setWifiPassword] = useState('');
@@ -48,9 +48,9 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ onAddToHistory }) =>
   const getPayload = (): string => {
     switch (qrType) {
       case 'link':
-        return url.trim() || 'https://pixdoc.app';
+        return url.trim() || 'https://rasheedgraphix.github.io/alldockit/';
       case 'text':
-        return textContent.trim() || 'Welcome to PixDoc';
+        return textContent.trim() || 'Welcome to AllDocKit';
       case 'wifi':
         return `WIFI:T:${wifiAuth};S:${wifiSsid};P:${wifiPassword};;`;
       case 'email':
@@ -105,13 +105,13 @@ export const QrStudioView: React.FC<QrStudioViewProps> = ({ onAddToHistory }) =>
     if (!qrDataUrl) return;
     const res = await fetch(qrDataUrl);
     const blob = await res.blob();
-    downloadBlob(blob, `PixDoc_QR_${qrType}.png`);
+    downloadBlob(blob, `AllDocKit_QR_${qrType}.png`);
 
     onAddToHistory({
       toolId: 'qr-studio',
       toolName: 'QR Studio',
       originalName: `QR (${qrType})`,
-      resultName: `PixDoc_QR_${qrType}.png`,
+      resultName: `AllDocKit_QR_${qrType}.png`,
       originalSize: blob.size,
       resultSize: blob.size,
       savedBytes: 0,

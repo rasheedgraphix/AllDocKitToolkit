@@ -172,7 +172,7 @@ export function onMessageListener(
     if (messaging) {
       try {
         unsubscribeFirebase = onMessage(messaging, (payload) => {
-          const title = payload.notification?.title || 'PixDoc Update';
+          const title = payload.notification?.title || 'AllDocKit Update';
           const body = payload.notification?.body || '';
           const notif: AppNotification = {
             id: payload.messageId || Math.random().toString(36).substring(2, 9),

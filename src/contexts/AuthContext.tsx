@@ -71,8 +71,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const handleUsageChange = () => {
       setDailyUsage(getDailyFreeUsage());
     };
+    window.addEventListener('alldockit-daily-usage-updated', handleUsageChange);
     window.addEventListener('pixdoc-daily-usage-updated', handleUsageChange);
-    return () => window.removeEventListener('pixdoc-daily-usage-updated', handleUsageChange);
+    return () => {
+      window.removeEventListener('alldockit-daily-usage-updated', handleUsageChange);
+      window.removeEventListener('pixdoc-daily-usage-updated', handleUsageChange);
+    };
   }, []);
 
   // Modals state

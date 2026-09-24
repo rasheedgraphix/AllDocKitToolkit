@@ -1,12 +1,12 @@
 import React from 'react';
 
-interface PixDocLogoProps {
+interface AllDocKitLogoProps {
   size?: number;
   className?: string;
   showBadge?: boolean;
 }
 
-export const PixDocLogo: React.FC<PixDocLogoProps> = ({
+export const PixDocLogo: React.FC<AllDocKitLogoProps> = ({
   size = 36,
   className = '',
 }) => {
@@ -14,115 +14,73 @@ export const PixDocLogo: React.FC<PixDocLogoProps> = ({
     <svg
       width={size}
       height={size}
-      viewBox="0 0 128 128"
+      viewBox="0 0 512 512"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={`shrink-0 drop-shadow-sm ${className}`}
     >
       <defs>
-        {/* Main Background Squircle Gradient */}
-        <linearGradient id="pixdoc_bg_grad" x1="16" y1="16" x2="112" y2="112" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#18181B" />
-          <stop offset="100%" stopColor="#09090B" />
+        <linearGradient id="adk_react_bg" x1="64" y1="40" x2="448" y2="472" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#0F172A" />
+          <stop offset="50%" stopColor="#090D16" />
+          <stop offset="100%" stopColor="#030712" />
         </linearGradient>
 
-        {/* PDF Red Crimson Gradient */}
-        <linearGradient id="pixdoc_pdf_grad" x1="32" y1="28" x2="68" y2="92" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#FF334B" />
-          <stop offset="100%" stopColor="#E11D48" />
+        <linearGradient id="adk_react_rim" x1="100" y1="50" x2="400" y2="450" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#38BDF8" stopOpacity="0.45" />
+          <stop offset="50%" stopColor="#10B981" stopOpacity="0.2" />
+          <stop offset="100%" stopColor="#6366F1" stopOpacity="0.1" />
         </linearGradient>
 
-        {/* Image Cyan / Violet Gradient */}
-        <linearGradient id="pixdoc_img_grad" x1="60" y1="44" x2="96" y2="100" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#38BDF8" />
-          <stop offset="50%" stopColor="#6366F1" />
-          <stop offset="100%" stopColor="#8B5CF6" />
+        <linearGradient id="adk_react_doc_primary" x1="160" y1="110" x2="350" y2="400" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#10B981" />
+          <stop offset="60%" stopColor="#059669" />
+          <stop offset="100%" stopColor="#047857" />
         </linearGradient>
 
-        {/* Glass Highlight */}
-        <linearGradient id="pixdoc_highlight" x1="32" y1="20" x2="96" y2="80" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.18" />
-          <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
+        <linearGradient id="adk_react_doc_pdf" x1="200" y1="160" x2="380" y2="420" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#F43F5E" />
+          <stop offset="50%" stopColor="#E11D48" />
+          <stop offset="100%" stopColor="#BE123C" />
         </linearGradient>
 
-        {/* Soft Drop Shadow Filter */}
-        <filter id="pixdoc_shadow" x="-10%" y="-10%" width="120%" height="120%" filterUnits="userSpaceOnUse">
-          <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#000000" floodOpacity="0.35" />
+        <linearGradient id="adk_react_fold" x1="290" y1="120" x2="350" y2="180" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#6EE7B7" />
+          <stop offset="100%" stopColor="#A7F3D0" />
+        </linearGradient>
+
+        <linearGradient id="adk_react_sparkle" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#FDE047" />
+          <stop offset="100%" stopColor="#F59E0B" />
+        </linearGradient>
+
+        <filter id="adk_react_shadow" x="-15%" y="-15%" width="130%" height="130%" filterUnits="userSpaceOnUse">
+          <feDropShadow dx="0" dy="16" stdDeviation="16" floodColor="#000000" floodOpacity="0.55" />
         </filter>
       </defs>
 
-      {/* Rounded Squircle Base */}
-      <rect
-        x="6"
-        y="6"
-        width="116"
-        height="116"
-        rx="28"
-        fill="url(#pixdoc_bg_grad)"
-        stroke="#27272A"
-        strokeWidth="1.5"
-      />
+      <rect x="24" y="24" width="464" height="464" rx="108" fill="url(#adk_react_bg)" stroke="#1E293B" strokeWidth="4" />
+      <rect x="28" y="28" width="456" height="456" rx="104" fill="none" stroke="url(#adk_react_rim)" strokeWidth="4" />
 
-      {/* Internal Subtle Highlight Rim */}
-      <rect
-        x="7.5"
-        y="7.5"
-        width="113"
-        height="113"
-        rx="26.5"
-        fill="none"
-        stroke="url(#pixdoc_highlight)"
-        strokeWidth="1.5"
-      />
+      <g filter="url(#adk_react_shadow)">
+        <path d="M128 160C128 142.327 142.327 128 160 128H270L340 198V330C340 347.673 325.673 362 308 362H160C142.327 362 128 347.673 128 330V160Z" fill="#1E293B" stroke="#334155" strokeWidth="6" />
+        <path d="M152 140C152 122.327 166.327 108 184 108H300L370 178V350C370 367.673 355.673 382 338 382H184C166.327 382 152 367.673 152 350V140Z" fill="url(#adk_react_doc_primary)" />
+        <path d="M300 108V154C300 167.255 310.745 178 324 178H370L300 108Z" fill="url(#adk_react_fold)" />
+        <rect x="188" y="180" width="180" height="200" rx="18" fill="url(#adk_react_doc_pdf)" stroke="#090D16" strokeWidth="6" />
 
-      {/* Group with slight shadow */}
-      <g filter="url(#pixdoc_shadow)">
-        {/* PDF Document Shape (Left Layer) */}
-        <path
-          d="M34 32C34 28.6863 36.6863 26 40 26H64L78 40V86C78 89.3137 75.3137 92 72 92H40C36.6863 92 34 89.3137 34 86V32Z"
-          fill="url(#pixdoc_pdf_grad)"
-        />
+        <rect x="220" y="218" width="70" height="12" rx="6" fill="#FFFFFF" fillOpacity="0.9" />
+        <rect x="220" y="246" width="116" height="10" rx="5" fill="#FFFFFF" fillOpacity="0.75" />
+        <rect x="220" y="270" width="96" height="10" rx="5" fill="#FFFFFF" fillOpacity="0.75" />
+        <rect x="220" y="294" width="60" height="10" rx="5" fill="#FFFFFF" fillOpacity="0.75" />
 
-        {/* Folded Corner Accent */}
-        <path
-          d="M64 26V36C64 38.2091 65.7909 40 68 40H78L64 26Z"
-          fill="#FDA4AF"
-          fillOpacity="0.85"
-        />
+        <circle cx="340" cy="350" r="38" fill="#0F172A" stroke="#38BDF8" strokeWidth="4" />
+        <path d="M328 360L340 334L352 360H346L343.5 354H336.5L334 360H328ZM338 350H342L340 344L338 350Z" fill="#38BDF8" />
 
-        {/* PDF Horizontal Document Micro-lines */}
-        <rect x="42" y="48" width="18" height="3" rx="1.5" fill="#FFFFFF" fillOpacity="0.8" />
-        <rect x="42" y="56" width="24" height="3" rx="1.5" fill="#FFFFFF" fillOpacity="0.8" />
-        <rect x="42" y="64" width="14" height="3" rx="1.5" fill="#FFFFFF" fillOpacity="0.8" />
-
-        {/* Image / Picture Frame (Right Layer, Overlapping) */}
-        <rect
-          x="54"
-          y="46"
-          width="44"
-          height="46"
-          rx="10"
-          fill="url(#pixdoc_img_grad)"
-          stroke="#09090B"
-          strokeWidth="2.5"
-        />
-
-        {/* Camera Aperture / Sun Element */}
-        <circle cx="85" cy="59" r="4.5" fill="#FEF08A" />
-
-        {/* Stylized Modern Landscape Peaks (Image icon) */}
-        <path
-          d="M57 84L68 69C69.1 67.5 71.4 67.5 72.5 69L79 78L83 72C84.1 70.5 86.4 70.5 87.5 72L95 83C95.7 83.9 95.1 85.2 94 85.2H58C56.9 85.2 56.3 83.9 57 84Z"
-          fill="#FFFFFF"
-          fillOpacity="0.95"
-        />
-
-        {/* Sparkle / Transformation Flare */}
-        <path
-          d="M52 38L53.5 42.5L58 44L53.5 45.5L52 50L50.5 45.5L46 44L50.5 42.5L52 38Z"
-          fill="#FFFFFF"
-        />
+        <path d="M208 142L213.5 156.5L228 162L213.5 167.5L208 182L202.5 167.5L188 162L202.5 156.5L208 142Z" fill="url(#adk_react_sparkle)" />
+        <circle cx="250" cy="148" r="4" fill="#FDE047" />
       </g>
     </svg>
   );
 };
+
+export const AllDocKitLogo = PixDocLogo;

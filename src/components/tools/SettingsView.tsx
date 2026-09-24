@@ -98,7 +98,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleSendTestNotification = () => {
     emitInAppNotification({
-      title: 'PixDoc Notification',
+      title: 'AllDocKit Notification',
       body: 'New PDF compress feature added! Enjoy up to 90% size reduction offline.',
     });
   };
@@ -112,7 +112,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       if (info.hasUpdate) {
         setShowUpdateModal(true);
       } else {
-        setUpdateStatusMessage(`PixDoc is up to date (v${info.currentVersion})`);
+        setUpdateStatusMessage(`AllDocKit is up to date (v${info.currentVersion})`);
         setTimeout(() => setUpdateStatusMessage(null), 5000);
       }
     } catch {
@@ -143,7 +143,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const handleRestorePurchase = () => {
     const current = checkLicense();
     if (current.isPro) {
-      setPurchaseNotice(`Purchase restored: PixDoc Pro (${current.plan.toUpperCase()}) is active!`);
+      setPurchaseNotice(`Purchase restored: AllDocKit Pro (${current.plan.toUpperCase()}) is active!`);
     } else {
       setPurchaseNotice('No prior subscription found for this device.');
     }
@@ -163,7 +163,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           Preferences & Desktop Settings
         </h2>
         <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-          Manage your PixDoc Pro subscription, customize default compression presets, and system settings.
+          Manage your AllDocKit Pro subscription, customize default compression presets, and system settings.
         </p>
       </div>
 
@@ -188,7 +188,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
             <div>
               <p className="text-xs font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wider">
-                PixDoc Pro Active ({license.isTrial ? '7-Day Free Trial' : `${license.plan.toUpperCase()} Plan`})
+                AllDocKit Pro Active ({license.isTrial ? '7-Day Free Trial' : `${license.plan.toUpperCase()} Plan`})
               </p>
               <p className="text-[11px] text-stone-500 dark:text-stone-400">
                 {license.expiryDate
@@ -267,7 +267,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
             <button
               type="button"
-              data-product-id="pixdoc.monthly"
+              data-product-id="alldockit.monthly"
               onClick={() => handleChoosePlan('monthly')}
               className="w-full py-2.5 px-4 rounded-xl border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100 text-xs font-bold hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors shadow-xs"
             >
@@ -319,7 +319,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div>
               <button
                 type="button"
-                data-product-id="pixdoc.annual"
+                data-product-id="alldockit.annual"
                 onClick={handleAnnualClick}
                 className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors shadow-sm"
               >
@@ -565,7 +565,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </p>
       </div>
 
-      {/* About PixDoc & Software Updates */}
+      {/* About AllDocKit & Software Updates */}
       <div className="p-5 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="space-y-1">
@@ -591,7 +591,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </span>
             </div>
             <p className="text-xs text-stone-500 dark:text-stone-400">
-              Check for official PixDoc desktop and web releases from GitHub.
+              Check for official AllDocKit desktop and web releases from GitHub.
             </p>
           </div>
 
@@ -614,11 +614,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         )}
       </div>
 
-      {/* About PixDoc: Privacy, Offline Guarantee & Support */}
+      {/* About AllDocKit: Privacy, Offline Guarantee & Support */}
       <div className="p-5 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-sm space-y-4">
         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-stone-500">
           <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-          <span>About PixDoc: 100% Offline &amp; Private</span>
+          <span>About AllDocKit: 100% Offline &amp; Private</span>
         </div>
 
         <div className="p-3.5 rounded-xl bg-stone-50 dark:bg-stone-800/40 border border-stone-200 dark:border-stone-700 space-y-1.5 text-xs">
@@ -627,7 +627,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <span>No Internet Needed — Zero Remote Uploads</span>
           </div>
           <p className="text-stone-500 dark:text-stone-400 leading-relaxed pl-5">
-            PixDoc operates completely on your local device. Your confidential PDF contracts, financial statements, and private images never leave your machine and are never uploaded to any remote server or third-party cloud.
+            AllDocKit operates completely on your local device. Your confidential PDF contracts, financial statements, and private images never leave your machine and are never uploaded to any remote server or third-party cloud.
           </p>
         </div>
 
@@ -653,7 +653,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
 
           <span className="text-[11px] text-stone-400">
-            PixDoc Toolkit &copy; {new Date().getFullYear()} &bull; Built with Privacy-First Architecture
+            AllDocKit Toolkit &copy; {new Date().getFullYear()} &bull; Built with Privacy-First Architecture
           </span>
         </div>
       </div>
@@ -691,7 +691,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <ShieldCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
                 <div>
                   <h3 className="text-base font-bold text-stone-900 dark:text-stone-100">
-                    PixDoc Official Privacy Policy &amp; Terms
+                    AllDocKit Official Privacy Policy &amp; Terms
                   </h3>
                   <p className="text-[11px] text-stone-500">Last updated: September 2026 &bull; Strict Zero-Knowledge Privacy</p>
                 </div>
@@ -708,13 +708,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
             <div className="space-y-4 text-xs text-stone-600 dark:text-stone-400 leading-relaxed">
               <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 font-medium">
-                🛡️ <strong>Absolute Privacy Commitment:</strong> PixDoc is engineered as a 100% offline, client-side application. We do not operate remote file-processing servers. Your confidential PDF contracts, financial statements, book scans, photos, audio recordings, and OCR outputs stay strictly inside your local device memory.
+                🛡️ <strong>Absolute Privacy Commitment:</strong> AllDocKit is engineered as a 100% offline, client-side application. We do not operate remote file-processing servers. Your confidential PDF contracts, financial statements, book scans, photos, audio recordings, and OCR outputs stay strictly inside your local device memory.
               </div>
 
               <div className="space-y-1.5">
                 <h4 className="font-bold text-stone-900 dark:text-stone-100 text-sm">1. Local Device File Processing</h4>
                 <p>
-                  Every operation performed in PixDoc—including PDF merging, page splitting, page rotation, image conversion, OCR book scanning, image compression, QR generation, and audio dictation—is executed exclusively within the local browser or Electron sandbox on your CPU/GPU. No document or audio stream is ever uploaded to remote servers.
+                  Every operation performed in AllDocKit—including PDF merging, page splitting, page rotation, image conversion, OCR book scanning, image compression, QR generation, and audio dictation—is executed exclusively within the local browser or Electron sandbox on your CPU/GPU. No document or audio stream is ever uploaded to remote servers.
                 </p>
               </div>
 
@@ -728,14 +728,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div className="space-y-1.5">
                 <h4 className="font-bold text-stone-900 dark:text-stone-100 text-sm">3. Subscription, License Keys &amp; Payments</h4>
                 <p>
-                  PixDoc provides transparent subscription and lifetime Pro license models. Pro licenses are activated either via cryptographic license keys or authentic secure payment methods (EasyPaisa, JazzCash, Direct Bank Transfer, or International Credit/Debit Card). License validation operates locally with offline fallback support. No sensitive financial credentials or bank PINs are stored on our servers.
+                  AllDocKit provides transparent subscription and lifetime Pro license models. Pro licenses are activated either via cryptographic license keys or authentic secure payment methods (EasyPaisa, JazzCash, Direct Bank Transfer, or International Credit/Debit Card). License validation operates locally with offline fallback support. No sensitive financial credentials or bank PINs are stored on our servers.
                 </p>
               </div>
 
               <div className="space-y-1.5">
                 <h4 className="font-bold text-stone-900 dark:text-stone-100 text-sm">4. Offline Guarantee &amp; Data Ownership</h4>
                 <p>
-                  You retain 100% full intellectual property and ownership rights of all documents, images, audio transcripts, and Word (.docx) files created or modified with PixDoc. PixDoc functions completely offline without requiring continuous internet connectivity.
+                  You retain 100% full intellectual property and ownership rights of all documents, images, audio transcripts, and Word (.docx) files created or modified with AllDocKit. AllDocKit functions completely offline without requiring continuous internet connectivity.
                 </p>
               </div>
 

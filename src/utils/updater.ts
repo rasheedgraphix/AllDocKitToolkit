@@ -12,7 +12,7 @@ export interface UpdateInfo {
 }
 
 export const GITHUB_REPO_OWNER = 'rasheedgraphix';
-export const GITHUB_REPO_NAME = 'PixDoc';
+export const GITHUB_REPO_NAME = 'AllDocKit';
 export const CURRENT_APP_VERSION = packageJson.version || '1.0.0';
 
 /**
