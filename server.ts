@@ -78,6 +78,49 @@ Instructions:
   }
 });
 
+// High-Precision AI OCR for Books, Documents, Urdu & Arabic Nastaliq
+app.post('/api/ocr-page', async (req, res) => {
+  try {
+    const { imageBase64, mimeType, language } = req.body;
+    if (!imageBase64) {
+      return res.status(400).json({ error: 'Image data is required' });
+    }
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              inlineData: {
+                data: imageBase64,
+                mimeType: mimeType || 'image/png',
+              },
+            },
+            {
+              text: `Perform high-precision OCR on this book page / document.
+Target Language: ${language || 'Urdu + Arabic (Nastaliq)'}.
+
+Strict Instructions:
+1. Extract ALL actual book content, headings, lesson titles (e.g. الدرس الأول, الدرس الثاني), vocabulary, grammar rules, exercises, and Urdu explanations verbatim in proper script.
+2. Ignore decorative page borders, floral frames, scanner artifacts, page noise, and small website watermark links (such as besturdubooks.wordpress.com or archive.org).
+3. Maintain paragraph layout and line structure.
+4. Output ONLY the extracted text of the page. Do NOT include markdown code blocks, preamble, or commentary.`,
+            },
+          ],
+        },
+      ],
+    });
+
+    const pageText = response.text ? response.text.trim() : '';
+    res.json({ text: pageText });
+  } catch (ocrErr: any) {
+    console.error('AI OCR Error:', ocrErr);
+    res.status(500).json({ error: ocrErr.message || 'AI OCR Failed' });
+  }
+});
+
 async function startServer() {
   const port = Number(process.env.PORT) || 3000;
 

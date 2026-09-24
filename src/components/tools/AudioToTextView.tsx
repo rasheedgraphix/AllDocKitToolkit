@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
 import { checkLicense } from '../../utils/license';
+import { transcribeAudio, getClientApiKey, setClientApiKey } from '../../utils/aiService';
 
 interface AudioToTextViewProps {
   onProcessComplete?: (historyItem: any) => void;
@@ -270,87 +271,33 @@ export const AudioToTextView: React.FC<AudioToTextViewProps> = ({ onProcessCompl
       const selectedLangObj = LANGUAGES.find((l) => l.code === selectedLang);
       const langPrompt = selectedLangObj ? selectedLangObj.label : 'Urdu, Arabic, or English';
 
-      // 2. Call backend transcription API
-      const response = await fetch('/api/transcribe-audio', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          audioBase64: base64Data,
-          mimeType: audioFile.type || 'audio/mp3',
-          languagePrompt: langPrompt,
-        }),
-      });
+      // 2. Call universal transcribe service
+      const extracted = await transcribeAudio(
+        base64Data,
+        audioFile.type || 'audio/mp3',
+        langPrompt
+      );
 
-      if (response.ok) {
-        const data = await response.json();
-        const extracted = data.transcript?.trim() || '';
-
-        if (extracted) {
-          setTranscript((prev) => (prev ? prev.trim() + '\n\n' + extracted : extracted));
-          setStatusMessage('Transcription completed successfully!');
-          return;
-        }
-      }
-
-      // If server response didn't return text, try local speech recognition fallback
-      throw new Error('Fallback to local playback transcription');
-    } catch (apiErr) {
-      console.warn('Backend transcription fallback:', apiErr);
-      setStatusMessage('Transcribing via local playback listener...');
-
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        setIsAutoTranscribing(false);
-        setStatusMessage('Transcription completed or please verify microphone permissions.');
+      if (extracted && extracted.trim()) {
+        setTranscript((prev) => (prev ? prev.trim() + '\n\n' + extracted.trim() : extracted.trim()));
+        setStatusMessage('Transcription completed successfully!');
         return;
       }
 
-      try {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = selectedLang;
-
-        const audio = audioRef.current || new Audio(audioUrl);
-        audio.currentTime = 0;
-        audio.play();
-        setIsPlayingAudio(true);
-
-        recognition.onresult = (event: any) => {
-          let currentTranscript = '';
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
-            if (event.results[i].isFinal) {
-              const piece = event.results[i][0].transcript.trim();
-              currentTranscript += piece + ' ';
-            }
-          }
-          if (currentTranscript) {
-            setTranscript((prev) => (prev ? prev.trim() + '\n' + currentTranscript : currentTranscript));
-          }
-        };
-
-        recognition.onend = () => {
-          setIsAutoTranscribing(false);
-          setIsPlayingAudio(false);
-          setStatusMessage('Audio transcription finished.');
-        };
-
-        audio.onended = () => {
-          setIsPlayingAudio(false);
-          setIsAutoTranscribing(false);
-          try {
-            recognition.stop();
-          } catch {}
-          setStatusMessage('Audio transcription finished.');
-        };
-
-        recognition.start();
-        recognitionRef.current = recognition;
-      } catch (recErr: any) {
-        console.error('Speech recognition fallback failed:', recErr);
-        setIsAutoTranscribing(false);
-        setIsPlayingAudio(false);
-        setStatusMessage(`Transcription ended: ${recErr.message || recErr}`);
+      throw new Error('No text was returned from the audio.');
+    } catch (apiErr: any) {
+      console.error('Audio Transcription Error:', apiErr);
+      setStatusMessage(`Transcription Notice: ${apiErr.message || 'Please check your connection or run on localhost:3000'}`);
+      
+      // Fallback: If on GitHub Pages without key, prompt user
+      if (apiErr.message?.includes('API key') || !getClientApiKey()) {
+        const userKey = window.prompt(
+          'To transcribe audio directly on GitHub Pages, enter your free Gemini API Key (or run PixDoc locally on port 3000):'
+        );
+        if (userKey && userKey.trim()) {
+          setClientApiKey(userKey.trim());
+          setStatusMessage('API Key saved! Click "Auto-Transcribe Audio File" to start.');
+        }
       }
     } finally {
       setIsAutoTranscribing(false);

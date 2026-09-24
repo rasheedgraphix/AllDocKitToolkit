@@ -31,6 +31,7 @@ import {
   exportToHtml,
   cleanBookOcrText,
 } from '../../utils/ocrDocExporter';
+import { performAiOcr } from '../../utils/aiService';
 import { HistoryItem } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -172,99 +173,106 @@ export const BookOcrConverterView: React.FC<BookOcrConverterViewProps> = ({ onAd
 
       let fullExtractedText = '';
 
+      // Helper function to perform OCR via AI API or Tesseract fallback
+      const processSinglePageOcr = async (imageBlobOrUrl: Blob | string, pageNumber?: number): Promise<string> => {
+        try {
+          // Convert Blob to base64
+          let base64 = '';
+          if (imageBlobOrUrl instanceof Blob) {
+            base64 = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => {
+                const res = reader.result as string;
+                resolve(res.split(',')[1] || res);
+              };
+              reader.onerror = reject;
+              reader.readAsDataURL(imageBlobOrUrl);
+            });
+          } else if (typeof imageBlobOrUrl === 'string' && imageBlobOrUrl.startsWith('data:')) {
+            base64 = imageBlobOrUrl.split(',')[1] || imageBlobOrUrl;
+          }
+
+          if (base64) {
+            const aiText = await performAiOcr(base64, 'image/png', effectiveLang);
+            if (aiText && aiText.trim().length > 0) {
+              return cleanBookOcrText(aiText.trim());
+            }
+          }
+        } catch (aiErr) {
+          console.warn('AI OCR fallback to local Tesseract:', aiErr);
+        }
+
+        // Tesseract fallback
+        try {
+          if (!worker) {
+            worker = await createWorker(effectiveLang);
+          }
+          const target = typeof imageBlobOrUrl === 'string' ? imageBlobOrUrl : URL.createObjectURL(imageBlobOrUrl);
+          const ret = await worker.recognize(target);
+          if (typeof imageBlobOrUrl !== 'string') URL.revokeObjectURL(target);
+          return cleanBookOcrText(ret?.data?.text?.trim() || '');
+        } catch (tessErr) {
+          console.error('Tesseract fallback failed:', tessErr);
+          return '';
+        }
+      };
+
       if (isPdf) {
         const targetPageList = parsePageRange(pageRange || '1-5', pdfPageCount || 1000);
-        
-        // Step 1: Check if PDF has embedded native selectable text
-        setStatusText(`Checking PDF text layer for ${targetPageList.length} pages...`);
-        const nativeTexts = await extractNativePdfText(selectedFile, targetPageList);
-        const hasNativeText = Object.keys(nativeTexts).length === targetPageList.length;
 
-        if (hasNativeText) {
-          setProgress(90);
-          setStatusText('Extracted 100% crystal clean text from PDF document!');
-          for (const pNum of targetPageList) {
-            const pageTxt = nativeTexts[pNum] || '';
-            fullExtractedText += (fullExtractedText ? `\n\n=== [ Page ${pNum} ] ===\n\n` : `=== [ Page ${pNum} ] ===\n\n`) + pageTxt;
-          }
-        } else {
-          // Step 2: High DPI render for scanned book pages
-          setStatusText(`Rendering ${targetPageList.length} pages at high-resolution...`);
-          setProgress(15);
-          const renderedPages = await renderPdfPagesToImages(
-            selectedFile,
-            'png',
-            0.95,
-            2.5,
-            targetPageList
-          );
+        // Render target PDF pages at high DPI (2.5x)
+        setStatusText(`Rendering ${targetPageList.length} pages at high-resolution...`);
+        setProgress(15);
+        const renderedPages = await renderPdfPagesToImages(
+          selectedFile,
+          'png',
+          0.95,
+          2.5,
+          targetPageList
+        );
 
-          for (let i = 0; i < renderedPages.length; i++) {
-            const page = renderedPages[i];
-            const pagePercent = Math.round(15 + ((i + 1) / renderedPages.length) * 80);
-            setProgress(pagePercent);
-            setStatusText(`Analyzing and reading Page ${page.pageNumber} (${i + 1}/${renderedPages.length})...`);
+        for (let i = 0; i < renderedPages.length; i++) {
+          const page = renderedPages[i];
+          const pagePercent = Math.round(15 + ((i + 1) / renderedPages.length) * 80);
+          setProgress(pagePercent);
+          setStatusText(`AI Reading & Extracting Page ${page.pageNumber} (${i + 1}/${renderedPages.length})...`);
 
-            let pageText = '';
-            // If this specific page has native text, use it
-            if (nativeTexts[page.pageNumber]) {
-              pageText = nativeTexts[page.pageNumber];
-            } else {
-              const pageUrl = URL.createObjectURL(page.blob);
-              let targetUrl = pageUrl;
-              if (enablePreprocessing) {
-                try {
-                  targetUrl = await preprocessImageForOcr(pageUrl, {
-                    contrast: contrastBoost,
-                    brightness,
-                    binarize,
-                    threshold,
-                  });
-                } catch {
-                  targetUrl = pageUrl;
-                }
-              }
+          const pageText = await processSinglePageOcr(page.blob, page.pageNumber);
 
-              const ret = await worker.recognize(targetUrl);
-              URL.revokeObjectURL(pageUrl);
-              pageText = ret?.data?.text?.trim() || '';
-              pageText = cleanBookOcrText(pageText);
-            }
-
-            if (pageText) {
-              fullExtractedText += (fullExtractedText ? `\n\n=== [ Page ${page.pageNumber} ] ===\n\n` : `=== [ Page ${page.pageNumber} ] ===\n\n`) + pageText;
-            }
+          if (pageText) {
+            fullExtractedText += (fullExtractedText ? `\n\n=== [ Page ${page.pageNumber} ] ===\n\n` : `=== [ Page ${page.pageNumber} ] ===\n\n`) + pageText;
           }
         }
       } else {
-        setStatusText('Preprocessing and enhancing scan image...');
+        setStatusText('Analyzing scan image with AI OCR...');
         setProgress(25);
 
-        let targetSource = previewUrl || URL.createObjectURL(selectedFile);
-        if (enablePreprocessing) {
+        let targetSource: Blob | string = selectedFile;
+        if (enablePreprocessing && previewUrl) {
           try {
-            targetSource = await preprocessImageForOcr(targetSource, {
+            targetSource = await preprocessImageForOcr(previewUrl, {
               contrast: contrastBoost,
               brightness,
               binarize,
               threshold,
             });
           } catch {
-            targetSource = previewUrl || URL.createObjectURL(selectedFile);
+            targetSource = selectedFile;
           }
         }
 
         setProgress(50);
         setStatusText(`Extracting book writing and document text (${effectiveLang.toUpperCase()})...`);
 
-        const ret = await worker.recognize(targetSource);
-        fullExtractedText = ret?.data?.text?.trim() || '';
-        fullExtractedText = cleanBookOcrText(fullExtractedText);
+        const extracted = await processSinglePageOcr(targetSource);
+        fullExtractedText = cleanBookOcrText(extracted);
       }
 
-      try {
-        await worker.terminate();
-      } catch {}
+      if (worker) {
+        try {
+          await worker.terminate();
+        } catch {}
+      }
 
       if (!fullExtractedText) {
         fullExtractedText = 'No clear readable text was detected. Please check if the document is right-side up, increase contrast, or choose the matching language.';
