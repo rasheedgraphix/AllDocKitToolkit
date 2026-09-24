@@ -30,6 +30,8 @@ export async function transcribeAudio(
   mimeType: string,
   languagePrompt: string = 'Urdu, Arabic, or English'
 ): Promise<string> {
+  const clientKey = getClientApiKey();
+
   // Method 1: Try server-side proxy route first
   try {
     const res = await fetch('/api/transcribe-audio', {
@@ -39,6 +41,7 @@ export async function transcribeAudio(
         audioBase64,
         mimeType,
         languagePrompt,
+        apiKey: clientKey,
       }),
     });
 
@@ -53,7 +56,6 @@ export async function transcribeAudio(
   }
 
   // Method 2: Client-side Gemini SDK fallback (works on GitHub Pages)
-  const clientKey = getClientApiKey();
   if (clientKey) {
     try {
       const ai = new GoogleGenAI({ apiKey: clientKey });
@@ -102,6 +104,8 @@ export async function performAiOcr(
   mimeType: string = 'image/png',
   language: string = 'Urdu + Arabic'
 ): Promise<string> {
+  const clientKey = getClientApiKey();
+
   // Method 1: Server proxy
   try {
     const res = await fetch('/api/ocr-page', {
@@ -111,6 +115,7 @@ export async function performAiOcr(
         imageBase64,
         mimeType,
         language,
+        apiKey: clientKey,
       }),
     });
 
@@ -125,7 +130,6 @@ export async function performAiOcr(
   }
 
   // Method 2: Client Gemini fallback
-  const clientKey = getClientApiKey();
   if (clientKey) {
     try {
       const ai = new GoogleGenAI({ apiKey: clientKey });
@@ -169,12 +173,14 @@ Strict Instructions:
  * Reconstruct & Clean Broken Urdu / Arabic OCR Text
  */
 export async function cleanAndReconstructText(rawText: string, language: string = 'Urdu'): Promise<string> {
+  const clientKey = getClientApiKey();
+
   // Method 1: Server proxy
   try {
     const res = await fetch('/api/clean-ocr-text', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rawText, language }),
+      body: JSON.stringify({ rawText, language, apiKey: clientKey }),
     });
 
     if (res.ok) {
@@ -184,7 +190,6 @@ export async function cleanAndReconstructText(rawText: string, language: string 
   } catch {}
 
   // Method 2: Client SDK
-  const clientKey = getClientApiKey();
   if (clientKey) {
     try {
       const ai = new GoogleGenAI({ apiKey: clientKey });

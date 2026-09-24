@@ -8,14 +8,19 @@ dotenv.config();
 const app = express();
 app.use(express.json({ limit: '50mb' }));
 
-const ai = new GoogleGenAI({});
+function getGenAiInstance(clientKey?: string) {
+  const key = clientKey || process.env.GEMINI_API_KEY || '';
+  return key ? new GoogleGenAI({ apiKey: key }) : new GoogleGenAI({});
+}
 
 app.post('/api/transcribe-audio', async (req, res) => {
   try {
-    const { audioBase64, mimeType, languagePrompt } = req.body;
+    const { audioBase64, mimeType, languagePrompt, apiKey } = req.body;
     if (!audioBase64) {
       return res.status(400).json({ error: 'Audio data is required' });
     }
+
+    const ai = getGenAiInstance(apiKey);
 
     // Call Gemini to transcribe the audio file
     const response = await ai.models.generateContent({
@@ -50,9 +55,10 @@ Instructions:
   } catch (error: any) {
     console.error('Audio Transcription Error:', error);
     try {
-      // Fallback attempt with gemini-flash-latest
-      const fallbackResponse = await ai.models.generateContent({
-        model: 'gemini-flash-latest',
+      const fallbackAi = getGenAiInstance(req.body?.apiKey);
+      // Fallback attempt with gemini-2.5-flash
+      const fallbackResponse = await fallbackAi.models.generateContent({
+        model: 'gemini-2.5-flash',
         contents: [
           {
             role: 'user',
@@ -81,10 +87,12 @@ Instructions:
 // High-Precision AI OCR for Books, Documents, Urdu & Arabic Nastaliq
 app.post('/api/ocr-page', async (req, res) => {
   try {
-    const { imageBase64, mimeType, language } = req.body;
+    const { imageBase64, mimeType, language, apiKey } = req.body;
     if (!imageBase64) {
       return res.status(400).json({ error: 'Image data is required' });
     }
+
+    const ai = getGenAiInstance(apiKey);
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -124,10 +132,12 @@ Strict Instructions:
 // AI Text Auto-Repair & Reconstruct (Fix broken OCR typos, broken Urdu words, disjoint letters)
 app.post('/api/clean-ocr-text', async (req, res) => {
   try {
-    const { rawText, language } = req.body;
+    const { rawText, language, apiKey } = req.body;
     if (!rawText) {
       return res.status(400).json({ error: 'Text is required' });
     }
+
+    const ai = getGenAiInstance(apiKey);
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',

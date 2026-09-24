@@ -238,14 +238,14 @@ export const BookOcrConverterView: React.FC<BookOcrConverterViewProps> = ({ onAd
       if (isPdf) {
         const targetPageList = parsePageRange(pageRange || '1-5', pdfPageCount || 1000);
 
-        // Render target PDF pages at high DPI (2.5x)
+        // Render target PDF pages at high DPI (1.8x JPEG)
         setStatusText(`Rendering ${targetPageList.length} pages at high-resolution...`);
         setProgress(15);
         const renderedPages = await renderPdfPagesToImages(
           selectedFile,
-          'png',
-          0.95,
-          2.5,
+          'jpeg',
+          0.9,
+          1.8,
           targetPageList
         );
 
