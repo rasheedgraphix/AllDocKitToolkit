@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell, ipcMain } = require('electron');
+const { app, BrowserWindow, shell, ipcMain, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -10,16 +10,26 @@ if (process.platform === 'win32') {
 let mainWindow = null;
 
 function getAppIcon() {
-  const icoPath = path.join(__dirname, 'public/icon.ico');
-  const pngPath = path.join(__dirname, 'public/logo_512x512.png');
-  const buildIco = path.join(__dirname, 'build/icon.ico');
-  
-  if (process.platform === 'win32') {
-    if (fs.existsSync(icoPath)) return icoPath;
-    if (fs.existsSync(buildIco)) return buildIco;
+  const candidatePaths = [
+    path.join(__dirname, 'build/icon.ico'),
+    path.join(__dirname, 'public/icon.ico'),
+    path.join(__dirname, 'build/icon.png'),
+    path.join(__dirname, 'public/logo_512x512.png'),
+    path.join(process.resourcesPath || '', 'build/icon.ico'),
+    path.join(process.resourcesPath || '', 'public/icon.ico'),
+    path.join(process.resourcesPath || '', 'icon.ico'),
+    path.join(process.resourcesPath || '', 'build/icon.png'),
+  ];
+
+  for (const candidate of candidatePaths) {
+    if (candidate && fs.existsSync(candidate)) {
+      const img = nativeImage.createFromPath(candidate);
+      if (!img.isEmpty()) {
+        return img;
+      }
+    }
   }
-  if (fs.existsSync(pngPath)) return pngPath;
-  return icoPath;
+  return undefined;
 }
 
 function createWindow() {

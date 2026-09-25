@@ -206,7 +206,7 @@ async function runTests() {
   try {
     const hasPlaceholder = GITHUB_REPO_OWNER.includes('YOUR_USERNAME');
     const isRasheedGraphix = GITHUB_REPO_OWNER === 'rasheedgraphix';
-    const isRepoValid = GITHUB_REPO_NAME === 'AllDocKit' || (GITHUB_REPO_NAME as string) === 'PixDoc';
+    const isRepoValid = ((GITHUB_REPO_NAME as string) === 'AllDocKitToolkit' || (GITHUB_REPO_NAME as string) === 'AllDocKit' || (GITHUB_REPO_NAME as string) === 'PixDoc');
 
     record(
       'Store Compliance: No Placeholder in Updater',
