@@ -1,7 +1,7 @@
 {
   "name": "alldockit",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "AllDocKit - Professional Offline Document Image and PDF Studio by Rasheed Graphix",
   "author": "Hafiz Nouman Rasheed <rasheedgraphix@gmail.com>",
   "type": "module",
@@ -12,10 +12,10 @@
     "build": "vite build",
     "preview": "vite preview",
     "deploy": "gh-pages -d dist",
-    "electron:start": "vite build && npx electron .",
-    "electron:dev": "npx concurrently \"tsx server.ts\" \"npx wait-on http://localhost:3000 && npx electron .\"",
-    "electron:build": "vite build && npx electron-builder --win",
-    "electron:store": "vite build && npx electron-builder --win appx",
+    "electron:start": "node scripts/prepare_appx_assets.js && vite build && npx electron .",
+    "electron:dev": "node scripts/prepare_appx_assets.js && npx concurrently \"tsx server.ts\" \"npx wait-on http://localhost:3000 && npx electron .\"",
+    "electron:build": "node scripts/prepare_appx_assets.js && vite build && npx electron-builder --win",
+    "electron:store": "node scripts/prepare_appx_assets.js && vite build && npx electron-builder --win appx",
     "tauri": "tauri",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit"
@@ -25,16 +25,18 @@
     "productName": "AllDocKit Toolkit",
     "copyright": "Copyright 2026 Rasheed Graphix (Hafiz Nouman Rasheed)",
     "directories": {
-      "output": "dist-appx"
+      "output": "dist-appx",
+      "buildResources": "build"
     },
-    "icon": "public/icon.ico",
+    "icon": "build/icon.ico",
     "files": [
       "dist/**/*",
       "electron.cjs",
-      "public/**/*"
+      "public/**/*",
+      "build/**/*"
     ],
     "win": {
-      "icon": "public/icon.ico",
+      "icon": "build/icon.ico",
       "target": [
         {
           "target": "appx",

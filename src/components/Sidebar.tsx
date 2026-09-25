@@ -378,9 +378,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <Shield className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
             <div className="text-[11px] leading-tight text-stone-600 dark:text-stone-400">
               <span className="font-semibold text-stone-900 dark:text-stone-200 block mb-0.5">
-                AllDocKit - 100% Free & Local
+                AllDocKit - 100% Private & Local
               </span>
-              Zero upload fees. All file processing runs right in your browser.
+              100% client-side. All document processing runs securely on your device.
             </div>
           </div>
         </div>

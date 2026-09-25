@@ -1,16 +1,37 @@
 const { app, BrowserWindow, shell, ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
+
+// Ensure Windows taskbar groups properly and displays the custom AllDocKit icon
+if (process.platform === 'win32') {
+  app.setAppUserModelId('RasheedGraphix.AllDocKitToolkit');
+}
 
 let mainWindow = null;
 
+function getAppIcon() {
+  const icoPath = path.join(__dirname, 'public/icon.ico');
+  const pngPath = path.join(__dirname, 'public/logo_512x512.png');
+  const buildIco = path.join(__dirname, 'build/icon.ico');
+  
+  if (process.platform === 'win32') {
+    if (fs.existsSync(icoPath)) return icoPath;
+    if (fs.existsSync(buildIco)) return buildIco;
+  }
+  if (fs.existsSync(pngPath)) return pngPath;
+  return icoPath;
+}
+
 function createWindow() {
+  const windowIcon = getAppIcon();
+
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 820,
     minWidth: 960,
     minHeight: 640,
-    title: 'AllDocKit - All-in-One PDF & Document Toolkit',
-    icon: path.join(__dirname, 'public/logo_300x300.png'),
+    title: 'AllDocKit Toolkit',
+    icon: windowIcon,
     backgroundColor: '#0c0a09',
     show: false,
     autoHideMenuBar: true,
