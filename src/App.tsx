@@ -35,10 +35,8 @@ import {
   AppNotification,
 } from './utils/firebase';
 import { NotificationToast } from './components/NotificationToast';
-import { AdBanner } from './components/ads/AdBanner';
-import { AdsterraScriptLoader } from './components/ads/AdsterraScriptLoader';
-import { AdsterraNativeBanner } from './components/ads/AdsterraNativeBanner';
 import { UpgradeModal } from './components/UpgradeModal';
+import { MicrosoftAdBanner } from './components/ads/MicrosoftAdBanner';
 
 const TOOL_NAMES: Record<ToolId, string> = {
   'pdf-merger': 'PDF Merger',
@@ -300,20 +298,16 @@ export default function App() {
                 />
               )}
 
-              {/* Conditional Responsive Bottom Ad/Sponsor Banner (Hidden when Offline) */}
+              {/* Microsoft Store Advertising Banner (Clean Bottom Control) */}
               {activeTool !== 'settings' && activeTool !== 'history' && (
-                <div className="space-y-4 max-w-4xl mx-auto my-4">
-                  <AdBanner slotType="bottom" />
-                  <AdsterraNativeBanner />
+                <div className="max-w-4xl mx-auto my-5">
+                  <MicrosoftAdBanner slotType="bottom" />
                 </div>
               )}
             </motion.div>
           </AnimatePresence>
         </main>
       </div>
-
-      {/* Adsterra Online Background Script Loader (SocialBar & Popunder) */}
-      <AdsterraScriptLoader />
 
       {/* Auto-Update Prompt Modal */}
       <UpdateModal

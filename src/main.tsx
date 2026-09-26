@@ -15,8 +15,13 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 );
 
-// Register Service Worker for 100% Offline Capability
-if ('serviceWorker' in navigator && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('run.app')) {
+// Register Service Worker for 100% Offline Capability (Web only, skip in desktop Electron)
+if (
+  'serviceWorker' in navigator &&
+  window.location.protocol.startsWith('http') &&
+  !window.location.hostname.includes('localhost') &&
+  !window.location.hostname.includes('run.app')
+) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
       .register('./sw.js')

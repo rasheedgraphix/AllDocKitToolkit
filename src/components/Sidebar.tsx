@@ -22,7 +22,6 @@ import {
 } from 'lucide-react';
 import { ToolId } from '../types';
 import { PixDocLogo } from './PixDocLogo';
-import { AdBanner } from './ads/AdBanner';
 import { checkLicense } from '../utils/license';
 
 interface SidebarProps {
@@ -326,9 +325,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               );
             })}
-
-            {/* Conditional Online Sidebar Ad / Sponsor */}
-            <AdBanner slotType="sidebar" />
           </div>
 
           {/* Pro Upgrade Callout in Sidebar */}
