@@ -36,7 +36,6 @@ import {
 } from './utils/firebase';
 import { NotificationToast } from './components/NotificationToast';
 import { UpgradeModal } from './components/UpgradeModal';
-import { MicrosoftAdBanner } from './components/ads/MicrosoftAdBanner';
 
 const TOOL_NAMES: Record<ToolId, string> = {
   'pdf-merger': 'PDF Merger',
@@ -296,13 +295,6 @@ export default function App() {
                   onResetSettings={handleResetSettings}
                   onOpenAuth={openLoginModal}
                 />
-              )}
-
-              {/* Microsoft Store Advertising Banner (Clean Bottom Control) */}
-              {activeTool !== 'settings' && activeTool !== 'history' && (
-                <div className="max-w-4xl mx-auto my-5">
-                  <MicrosoftAdBanner slotType="bottom" />
-                </div>
               )}
             </motion.div>
           </AnimatePresence>
